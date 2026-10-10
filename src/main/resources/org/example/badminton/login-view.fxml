@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox alignment="CENTER" spacing="14.0"
+      xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="org.example.badminton.LoginController">
+    <padding>
+        <Insets bottom="30.0" left="40.0" right="40.0" top="30.0" />
+    </padding>
+
+    <Label styleClass="title" text="ระบบจองสนามแบดมินตัน" />
+    <Label styleClass="hint" text="12 สนาม  •  180 บาท/ชั่วโมง" />
+
+    <VBox maxWidth="340.0" spacing="10.0" styleClass="card">
+        <Label styleClass="section-title" text="เข้าสู่ระบบ" />
+        <Label text="รหัสพนักงาน" />
+        <TextField fx:id="txtStaffId" promptText="เช่น C01 หรือ A01" />
+        <Button defaultButton="true" maxWidth="Infinity" onAction="#onLoginButtonClick"
+                styleClass="primary-button" text="เข้าสู่ระบบ" />
+        <Label fx:id="lblError" styleClass="error" wrapText="true" />
+    </VBox>
+
+    <Label styleClass="hint" text="แคชเชียร์: C01, C02     ผู้ดูแลระบบ: A01" />
+</VBox>

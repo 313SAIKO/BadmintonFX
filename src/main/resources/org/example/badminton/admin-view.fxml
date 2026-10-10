@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.StackedBarChart?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.badminton.AdminController">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12.0" styleClass="header">
+            <Label styleClass="header-title" text="ระบบจองสนามแบดมินตัน (ผู้ดูแลระบบ)" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="lblUser" />
+            <Button onAction="#onLogoutButtonClick" text="ออกจากระบบ" />
+        </HBox>
+    </top>
+
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+
+            <!-- ==================== ประวัติการจอง ==================== -->
+            <Tab text="ประวัติการจองของสมาชิก">
+                <VBox spacing="12.0">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <VBox spacing="8.0" styleClass="card">
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <Label styleClass="section-title" text="สมาชิก:" />
+                            <ComboBox fx:id="cboHistoryMember" prefWidth="280.0" />
+                        </HBox>
+                        <Label fx:id="lblHistorySummary" wrapText="true" />
+                    </VBox>
+                    <TableView fx:id="tblHistory" VBox.vgrow="ALWAYS" />
+                </VBox>
+            </Tab>
+
+            <!-- ==================== รายได้รายวัน ==================== -->
+            <Tab text="สรุปรายได้รายวัน">
+                <HBox spacing="16.0">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <VBox minWidth="320.0" prefWidth="320.0" spacing="10.0" styleClass="card">
+                        <Label styleClass="section-title" text="เลือกวันที่" />
+                        <DatePicker fx:id="dpDaily" maxWidth="Infinity" />
+                        <VBox fx:id="boxDailySummary" spacing="6.0" />
+                    </VBox>
+                    <TableView fx:id="tblDaily" HBox.hgrow="ALWAYS" />
+                </HBox>
+            </Tab>
+
+            <!-- ==================== รายได้รายเดือน ==================== -->
+            <Tab text="สรุปรายได้รายเดือน">
+                <HBox spacing="16.0">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <VBox minWidth="320.0" prefWidth="320.0" spacing="10.0" styleClass="card">
+                        <Label styleClass="section-title" text="เลือกเดือน" />
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Label text="ปี ค.ศ." />
+                            <ComboBox fx:id="cboYear" prefWidth="100.0" />
+                            <Label text="เดือน" />
+                            <ComboBox fx:id="cboMonth" prefWidth="80.0" />
+                        </HBox>
+                        <VBox fx:id="boxMonthlySummary" spacing="6.0" />
+                    </VBox>
+                    <VBox spacing="8.0" styleClass="card" HBox.hgrow="ALWAYS">
+                        <StackedBarChart fx:id="chartMonthly" animated="false" legendSide="BOTTOM"
+                                         title="รายได้แต่ละวันในเดือน (บาท)" VBox.vgrow="ALWAYS">
+                            <xAxis>
+                                <CategoryAxis label="วันที่" />
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis label="บาท" />
+                            </yAxis>
+                        </StackedBarChart>
+                    </VBox>
+                </HBox>
+            </Tab>
+
+            <!-- ==================== วันหยุดนักขัตฤกษ์ ==================== -->
+            <Tab text="วันหยุดนักขัตฤกษ์">
+                <VBox spacing="12.0">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <VBox maxWidth="620.0" spacing="10.0" styleClass="card">
+                        <Label styleClass="section-title" text="วันหยุดนักขัตฤกษ์ (เปิด 10:00 - 20:00 น. เหมือนวันเสาร์-อาทิตย์)" wrapText="true" />
+                        <ListView fx:id="lstHolidays" prefHeight="260.0" />
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <DatePicker fx:id="dpHoliday" prefWidth="170.0" />
+                            <Button onAction="#onAddHolidayButtonClick" styleClass="primary-button" text="เพิ่มวันหยุด" />
+                        </HBox>
+                        <Label fx:id="lblHolidayResult" wrapText="true" />
+                    </VBox>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </center>
+</BorderPane>
