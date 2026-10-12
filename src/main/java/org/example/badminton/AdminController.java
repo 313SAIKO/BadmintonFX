@@ -8,6 +8,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.TextFieldListCell;
 import javafx.scene.layout.VBox;
@@ -41,6 +43,12 @@ public class AdminController {
     @FXML private DatePicker dpHoliday;
     @FXML private Label lblHolidayResult;
 
+    // ----- แท็บสต็อกอุปกรณ์ -----
+    @FXML private TableView<Item> tblStock;
+    @FXML private Label lblStockItem;
+    @FXML private Spinner<Integer> spnRestock;
+    @FXML private Label lblStockResult;
+
     private BadmintonApplication app;
     private BadmintonCenter center;
     private Admin admin;
@@ -68,10 +76,27 @@ public class AdminController {
         cboYear.setValue(today.getYear());
         cboMonth.setValue(today.getMonthValue());
 
+        FxHelper.addColumn(tblStock, "รหัส", 60, item -> item.getCode());
+        FxHelper.addColumn(tblStock, "ชื่ออุปกรณ์", 200, item -> item.getName());
+        FxHelper.addColumn(tblStock, "ประเภท", 120, item -> item.getCategory());
+        FxHelper.addColumn(tblStock, "ราคา (บาท)", 90, item -> FxHelper.money(item.getPrice()) + "/" + item.getUnit());
+        FxHelper.addColumn(tblStock, "คงเหลือ/ว่างวันนี้", 200, item -> item.getStockInfo(LocalDate.now()));
+        // แถวของที่หมดหรือเช่าเต็มวันนี้ แสดงเป็นสีแดง
+        tblStock.setRowFactory(table -> new TableRow<Item>() {
+            @Override
+            protected void updateItem(Item item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().remove("row-full");
+                if (!empty && item != null && !item.isAvailable(1, LocalDate.now()))
+                    getStyleClass().add("row-full");
+            }
+        });
+
         cboHistoryMember.valueProperty().addListener((obs, oldValue, newValue) -> showHistory());
         dpDaily.valueProperty().addListener((obs, oldValue, newValue) -> showDaily());
         cboYear.valueProperty().addListener((obs, oldValue, newValue) -> showMonthly());
         cboMonth.valueProperty().addListener((obs, oldValue, newValue) -> showMonthly());
+        tblStock.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> showStockItem());
     }
 
     public void setData(BadmintonApplication app, Admin admin) {
@@ -85,6 +110,8 @@ public class AdminController {
         showDaily();
         showMonthly();
         showHolidays();
+        tblStock.setItems(FXCollections.observableArrayList(center.getItems()));
+        showStockItem();
     }
 
     @FXML
@@ -249,5 +276,39 @@ public class AdminController {
         if (!affected.isEmpty())
             result += " | มีการจองนอกเวลาทำการ " + affected.size() + " รายการ ต้องติดต่อสมาชิก";
         FxHelper.showMessage(lblHolidayResult, result, affected.isEmpty());
+    }
+
+    // ==================== สต็อกอุปกรณ์ ====================
+    private void showStockItem() {
+        Item item = tblStock.getSelectionModel().getSelectedItem();
+        if (item == null) {
+            lblStockItem.setText("เลือกอุปกรณ์จากตารางด้านซ้าย");
+            return;
+        }
+        lblStockItem.setText(item.getCode() + " " + item.getName() + " (" + item.getCategory() + ")\nวันนี้: "
+                + item.getStockInfo(LocalDate.now()));
+    }
+
+    @FXML
+    protected void onRestockButtonClick() {
+        Item item = tblStock.getSelectionModel().getSelectedItem();
+        if (item == null) {
+            FxHelper.showMessage(lblStockResult, "กรุณาเลือกอุปกรณ์จากตาราง", false);
+            return;
+        }
+        int quantity = spnRestock.getValue();
+        String error = center.checkRestock(item.getCode(), quantity);
+        if (error != null) {
+            FxHelper.showMessage(lblStockResult, error, false);
+            return;
+        }
+        if (!FxHelper.confirm("ยืนยันการเพิ่มจำนวน", item.getCode() + " " + item.getName() + "\nเพิ่ม " + quantity
+                + " " + item.getUnit().replace("/วัน", "")))
+            return;
+        admin.restockItem(center, item.getCode(), quantity);
+        tblStock.refresh();
+        showStockItem();
+        FxHelper.showMessage(lblStockResult, "เพิ่ม " + item.getName() + " " + quantity + " แล้ว | วันนี้: "
+                + item.getStockInfo(LocalDate.now()), true);
     }
 }

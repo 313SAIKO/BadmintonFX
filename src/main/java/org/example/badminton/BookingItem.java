@@ -9,7 +9,8 @@ public class BookingItem {
     private LocalDate date;
     private int startHour;
     private int hours;
-    private int packageHours;   // ผลจาก Member.priceItems() ใช้แสดงราคาก่อนยืนยัน
+    private boolean lateStart;  // ชั่วโมงแรกเริ่มไปแล้วไม่เกิน 30 นาที (ตั้งโดย BadmintonCenter.priceBookings)
+    private int packageHours;   // ผลจาก Member.priceItems() ใช้แสดงราคาก่อนยืนยัน และใช้บันทึกการจองจริง
     private int discountHours;
     private double fee;
 
@@ -24,6 +25,8 @@ public class BookingItem {
     public LocalDate getDate() { return date; }
     public int getStartHour() { return startHour; }
     public int getHours() { return hours; }
+    public boolean isLateStart() { return lateStart; }
+    public void setLateStart(boolean lateStart) { this.lateStart = lateStart; }
     public int getPackageHours() { return packageHours; }
     public int getDiscountHours() { return discountHours; }
     public double getFee() { return fee; }
@@ -40,6 +43,14 @@ public class BookingItem {
         this.packageHours = packageHours;
         this.discountHours = discountHours;
         this.fee = fee;
+    }
+
+    // ชั่วโมงที่นับเป็นชั่วโมงสะสม: ไม่นับชั่วโมงแพ็กเกจ และไม่นับชั่วโมงแรกที่เริ่มไปแล้ว
+    public int getCountedHours() {
+        int counted = hours - packageHours;
+        if (lateStart)
+            counted--;
+        return counted;
     }
 
     // ทับกับคำขออื่นในการจองครั้งเดียวกันหรือไม่

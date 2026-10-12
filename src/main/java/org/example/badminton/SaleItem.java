@@ -13,6 +13,7 @@ public class SaleItem extends Item {
 
     public int getStock() { return stock; }
 
+    @Override
     public void addStock(int quantity) {
         if (quantity > 0)
             stock += quantity;
@@ -37,6 +38,12 @@ public class SaleItem extends Item {
     @Override
     public void provide(int quantity, LocalDate date) {
         stock -= quantity;
+    }
+
+    // ของขายส่งมอบทันที จึงบันทึกรายได้เป็นวันที่ขาย ถึงตะกร้าจะเลือกวันที่ล่วงหน้าไว้สำหรับของเช่า
+    @Override
+    public LocalDate getRevenueDate(LocalDate useDate, LocalDate today) {
+        return today;
     }
 
     @Override

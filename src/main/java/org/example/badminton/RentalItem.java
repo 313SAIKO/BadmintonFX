@@ -48,6 +48,12 @@ public class RentalItem extends Item {
     }
 
     @Override
+    public void addStock(int quantity) {
+        if (quantity > 0)
+            totalPairs += quantity;
+    }
+
+    @Override
     public String getStockInfo(LocalDate date) {
         if (getAvailablePairs(date) <= 0)
             return "เต็มแล้ว (เช่าครบ " + totalPairs + " คู่)";

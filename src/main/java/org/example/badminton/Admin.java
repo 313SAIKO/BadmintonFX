@@ -34,6 +34,11 @@ public class Admin extends Person {
         center.getOpeningHours().removePublicHoliday(date);
     }
 
+    // ซื้ออุปกรณ์มาเพิ่ม คืนค่า null ถ้าทำไม่ได้
+    public Item restockItem(BadmintonCenter center, String itemCode, int quantity) {
+        return center.restockItem(itemCode, quantity);
+    }
+
     // Overloading: ดูรายการรายได้ของวัน หรือของเดือน
     public ArrayList<Chargeable> viewTransactions(BadmintonCenter center, LocalDate date) {
         return center.getTransactions(date);

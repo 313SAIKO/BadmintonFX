@@ -23,36 +23,48 @@ public class Cashier extends Person {
         return m;
     }
 
-    // Overloading: จองตอนนี้ (ใช้จากหน้าจอ) หรือระบุเวลาที่ทำรายการเอง (ใช้สร้างข้อมูลประวัติย้อนหลัง)
-    public Booking bookCourt(BadmintonCenter center, String memberId, int courtNo, LocalDate date,
-                             int startHour, int hours, String slipNo, String slipFile) {
-        return bookCourt(center, memberId, courtNo, date, startHour, hours, slipNo, slipFile, LocalDateTime.now());
+    // Overloading: ทำรายการตอนนี้ (ใช้จากหน้าจอ) หรือระบุเวลาที่ทำรายการเอง (ใช้สร้างข้อมูลประวัติย้อนหลัง)
+    // slipAmount = ยอดเงินที่อ่านจากสลิป ต้องตรงกับค่าสนาม
+    public Booking bookCourt(BadmintonCenter center, String memberId, int courtNo, LocalDate date, int startHour,
+                             int hours, String slipNo, String slipFile, double slipAmount) {
+        return bookCourt(center, memberId, courtNo, date, startHour, hours, slipNo, slipFile, slipAmount,
+                LocalDateTime.now());
     }
 
     public Booking bookCourt(BadmintonCenter center, String memberId, int courtNo, LocalDate date, int startHour,
-                             int hours, String slipNo, String slipFile, LocalDateTime bookedAt) {
-        return center.createBooking(this, memberId, courtNo, date, startHour, hours, slipNo, slipFile, bookedAt);
+                             int hours, String slipNo, String slipFile, double slipAmount, LocalDateTime bookedAt) {
+        return center.createBooking(this, memberId, courtNo, date, startHour, hours, slipNo, slipFile, slipAmount,
+                bookedAt);
     }
 
     // จองหลายสนาม/หลายวันพร้อมกันในครั้งเดียว ชำระด้วยสลิปใบเดียว
     public ArrayList<Booking> bookCourts(BadmintonCenter center, String memberId, ArrayList<BookingItem> requests,
-                                         String slipNo, String slipFile) {
-        return center.createBookings(this, memberId, requests, slipNo, slipFile, LocalDateTime.now());
+                                         String slipNo, String slipFile, double slipAmount) {
+        return center.createBookings(this, memberId, requests, slipNo, slipFile, slipAmount, LocalDateTime.now());
     }
 
-    public HourPackage sellPackage(BadmintonCenter center, String memberId, LocalDate date) {
-        return center.createPackage(memberId, date);
+    public HourPackage sellPackage(BadmintonCenter center, String memberId) {
+        return sellPackage(center, memberId, LocalDateTime.now());
+    }
+
+    public HourPackage sellPackage(BadmintonCenter center, String memberId, LocalDateTime soldAt) {
+        return center.createPackage(memberId, soldAt);
     }
 
     public ItemOrder sellItem(BadmintonCenter center, String itemCode, int quantity,
                               LocalDate date, String customerName) {
-        return center.createItemOrder(itemCode, quantity, date, customerName);
+        return sellItem(center, itemCode, quantity, date, customerName, LocalDateTime.now());
+    }
+
+    public ItemOrder sellItem(BadmintonCenter center, String itemCode, int quantity,
+                              LocalDate date, String customerName, LocalDateTime soldAt) {
+        return center.createItemOrder(itemCode, quantity, date, customerName, soldAt);
     }
 
     // เช่า/ซื้อหลายรายการจากตะกร้าพร้อมกันในครั้งเดียว
     public ArrayList<ItemOrder> sellItems(BadmintonCenter center, ArrayList<CartItem> cart,
                                           LocalDate date, String customerName) {
-        return center.createItemOrders(cart, date, customerName);
+        return center.createItemOrders(cart, date, customerName, LocalDateTime.now());
     }
 
     // Overloading: ค้นหาการจองได้ 3 แบบ ชื่อเมธอดเดียวกันแต่ parameter ต่างกัน

@@ -23,6 +23,11 @@ public abstract class Item {
         return price * quantity;
     }
 
+    // วันที่บันทึกรายได้: ปกติคือวันที่ใช้อุปกรณ์ (ของเช่าจองล่วงหน้าได้) ของขายจะ override เป็นวันที่ขาย
+    public LocalDate getRevenueDate(LocalDate useDate, LocalDate today) {
+        return useDate;
+    }
+
     // คลาสลูกต้องกำหนดเอง เพราะของเช่ากับของขายทำงานต่างกัน
     // ของเช่า: นับจำนวนที่ว่างแยกตามวัน (คืนภายในวัน) / ของขาย: สต็อกลดลงถาวร ไม่ขึ้นกับวัน
     public abstract String getUnit();
@@ -30,6 +35,8 @@ public abstract class Item {
     public abstract boolean isAvailable(int quantity, LocalDate date);
     public abstract void provide(int quantity, LocalDate date);
     public abstract String getStockInfo(LocalDate date);
+    // ซื้ออุปกรณ์มาเพิ่ม: ของขาย = เติมสต็อก / ของเช่า = มีให้เช่าได้มากขึ้นทุกวัน
+    public abstract void addStock(int quantity);
 
     @Override
     public String toString() {

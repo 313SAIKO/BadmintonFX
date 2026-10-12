@@ -3,6 +3,7 @@ package org.example.badminton;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.DateCell;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -56,6 +57,17 @@ public class FxHelper {
         });
     }
 
+    // ปิดวันที่ผ่านมาแล้วในปฏิทิน (รายการที่ลงย้อนหลังไม่ได้)
+    public static void disablePastDates(DatePicker picker) {
+        picker.setDayCellFactory(p -> new DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                setDisable(empty || date.isBefore(LocalDate.now()));
+            }
+        });
+    }
+
     // ตารางการจอง ใช้ทั้งหน้าค้นหาของแคชเชียร์ และหน้าประวัติของผู้ดูแลระบบ
     public static void setupBookingTable(TableView<Booking> table) {
         addColumn(table, "รหัส", 70, b -> b.getBookingId());
@@ -82,6 +94,8 @@ public class FxHelper {
         }
         if (b.getDiscountHours() > 0)
             text += " | ลด 30% " + b.getDiscountHours() + " ชม.";
+        if (b.isLateStart())
+            text += " | ชม.แรกครึ่งราคา";
         return text;
     }
 

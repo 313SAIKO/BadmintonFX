@@ -9,6 +9,7 @@
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TableView?>
@@ -115,6 +116,30 @@
                         <Label fx:id="lblHolidayResult" wrapText="true" />
                     </VBox>
                 </VBox>
+            </Tab>
+
+            <!-- ==================== สต็อกอุปกรณ์ ==================== -->
+            <Tab text="สต็อกอุปกรณ์">
+                <HBox spacing="16.0">
+                    <padding>
+                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                    </padding>
+                    <TableView fx:id="tblStock" HBox.hgrow="ALWAYS" />
+                    <VBox minWidth="360.0" prefWidth="360.0" spacing="10.0" styleClass="card">
+                        <Label styleClass="section-title" text="ซื้ออุปกรณ์มาเพิ่ม" />
+                        <Label styleClass="hint" wrapText="true"
+                               text="ของขาย: เติมสต็อกที่ขายได้  •  ของเช่า: เพิ่มจำนวนคู่ที่มีให้เช่าได้ในแต่ละวัน" />
+                        <Label fx:id="lblStockItem" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <Label text="จำนวนที่เพิ่ม:" />
+                            <Spinner fx:id="spnRestock" editable="true" initialValue="10" max="1000" min="1"
+                                     prefWidth="110.0" />
+                        </HBox>
+                        <Button maxWidth="Infinity" onAction="#onRestockButtonClick" styleClass="primary-button"
+                                text="บันทึกการเพิ่มจำนวน" />
+                        <Label fx:id="lblStockResult" wrapText="true" />
+                    </VBox>
+                </HBox>
             </Tab>
         </TabPane>
     </center>

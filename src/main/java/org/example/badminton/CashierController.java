@@ -51,6 +51,7 @@ public class CashierController {
     @FXML private Label lblPrice;
     @FXML private VBox boxSlip;
     @FXML private TextField txtSlipNo;
+    @FXML private TextField txtSlipAmount;
     @FXML private TextField txtSlipFile;
     @FXML private Button btnBook;
     @FXML private Label lblBookResult;
@@ -66,7 +67,7 @@ public class CashierController {
 
     // ----- แท็บแพ็กเกจ -----
     @FXML private ComboBox<Member> cboPackageMember;
-    @FXML private DatePicker dpPackageDate;
+    @FXML private Label lblPackageDate;
     @FXML private Label lblPackageInfo;
     @FXML private Label lblPackageResult;
 
@@ -125,12 +126,12 @@ public class CashierController {
         cboSearchCourt.getSelectionModel().selectFirst();
 
         FxHelper.setupDatePicker(dpDate);
-        FxHelper.setupDatePicker(dpPackageDate);
         FxHelper.setupDatePicker(dpItemDate);
+        FxHelper.disablePastDates(dpItemDate);
         FxHelper.setupDatePicker(dpSearchDate);
         LocalDate today = LocalDate.now();
         dpDate.setValue(today);
-        dpPackageDate.setValue(today);
+        lblPackageDate.setText(today + " (วันนี้ เปลี่ยนไม่ได้)");
         dpItemDate.setValue(today);
         dpSearchDate.setValue(today);
 
@@ -270,6 +271,7 @@ public class CashierController {
         if (m != bookingMember) {
             bookingMember = m;
             txtSlipNo.clear();
+            txtSlipAmount.clear();
             txtSlipFile.clear();
             lblBookResult.setText("");
             btnRentForMember.setVisible(false);
@@ -361,7 +363,7 @@ public class CashierController {
         btnBook.setText("ยืนยันการจอง");
         btnBook.setDisable(true);
         btnClearSlots.setDisable(items.isEmpty());
-        showSlipBox(true);
+        showSlipBox(false);  // แสดงช่องสลิปเมื่อรู้ยอดที่ต้องชำระแล้วเท่านั้น
 
         if (m == null) {
             lblPrice.setText("ขั้นที่ 1: เลือกสมาชิกจากรายชื่อด้านบน");
@@ -378,13 +380,15 @@ public class CashierController {
             return;
         }
 
-        double total = m.priceItems(items, Court.PRICE_PER_HOUR);
+        double total = center.priceBookings(m, items, LocalDateTime.now());
         int totalHours = 0;
         int packageHours = 0;
         String text = "รายการจอง " + items.size() + " รายการ";
         for (int i = 0; i < items.size(); i++) {
             BookingItem item = items.get(i);
             text += "\n" + (i + 1) + ") " + item + " = " + FxHelper.money(item.getFee());
+            if (item.isLateStart())
+                text += " (ชม.แรกเริ่มไปแล้ว คิด " + Member.LATE_START_PERCENT + "% ไม่นับสะสม)";
             if (item.getPackageHours() > 0)
                 text += " (แพ็กเกจ " + item.getPackageHours() + " ชม.)";
             if (item.getDiscountHours() > 0)
@@ -461,6 +465,10 @@ public class CashierController {
                 } else if (isPastHour(hour)) {
                     cell.setTooltip(new Tooltip("เลยเวลาแล้ว จองย้อนหลังไม่ได้"));
                 } else {
+                    if (center.isLateStart(date, hour, scheduleNow))
+                        cell.setTooltip(new Tooltip("ชั่วโมงนี้เริ่มไปแล้ว " + scheduleNow.getMinute()
+                                + " นาที จองได้ครึ่งราคา (ไม่นับชั่วโมงสะสม) ถึง "
+                                + String.format("%02d:%02d", hour, BadmintonCenter.LATE_LIMIT_MINUTES)));
                     addSlotHandlers(cell, c, hour);
                 }
                 slotCells[r][c] = cell;
@@ -493,8 +501,11 @@ public class CashierController {
                 else
                     cell.getStyleClass().setAll("label", "slot-free");
                 if (!booked) {
+                    boolean late = !unavailable && center.isLateStart(date, hour, scheduleNow);
                     if (selected && !unavailable)
                         cell.setText("✓");
+                    else if (late)
+                        cell.setText("½ ราคา");  // ชั่วโมงที่เริ่มไปแล้ว ยังจองได้ครึ่งราคา
                     else
                         cell.setText("");
                 }
@@ -633,18 +644,31 @@ public class CashierController {
             return;
         }
 
-        double total = m.priceItems(items, Court.PRICE_PER_HOUR);
+        double total = center.priceBookings(m, items, LocalDateTime.now());
         String slipNo = txtSlipNo.getText().trim();
         String slipFile = txtSlipFile.getText().trim();
-        if (total > 0 && (slipNo.isEmpty() || slipFile.isEmpty())) {
-            FxHelper.showMessage(lblBookResult, "มียอดชำระ " + FxHelper.money(total)
-                    + " บาท กรุณากรอกเลขที่สลิปและแนบไฟล์สลิป", false);
+        double slipAmount = 0;
+        if (total > 0) {
+            try {
+                slipAmount = Double.parseDouble(txtSlipAmount.getText().trim().replace(",", ""));
+            } catch (NumberFormatException e) {
+                FxHelper.showMessage(lblBookResult, "กรุณากรอกยอดเงินในสลิปเป็นตัวเลข (ยอดที่ต้องชำระ "
+                        + FxHelper.money(total) + " บาท)", false);
+                return;
+            }
+        }
+        error = center.checkSlip(slipNo, slipFile, slipAmount, total);
+        if (error != null) {
+            FxHelper.showMessage(lblBookResult, "สลิปไม่ถูกต้อง: " + error, false);
             return;
         }
-        if (!FxHelper.confirm("ยืนยันการจอง", m.getId() + " " + m.getName() + "\n" + lblPrice.getText()))
+        String confirmText = m.getId() + " " + m.getName() + "\n" + lblPrice.getText();
+        if (total > 0)
+            confirmText += "\nสลิป " + slipNo + " (" + slipFile + ") ยอด " + FxHelper.money(slipAmount) + " บาท";
+        if (!FxHelper.confirm("ยืนยันการจอง", confirmText))
             return;
 
-        ArrayList<Booking> booked = cashier.bookCourts(center, m.getId(), items, slipNo, slipFile);
+        ArrayList<Booking> booked = cashier.bookCourts(center, m.getId(), items, slipNo, slipFile, slipAmount);
         if (booked == null) {
             FxHelper.showMessage(lblBookResult, "จองไม่สำเร็จ", false);
             return;
@@ -661,6 +685,7 @@ public class CashierController {
         btnRentForMember.setManaged(true);
 
         txtSlipNo.clear();
+        txtSlipAmount.clear();
         txtSlipFile.clear();
         selectedSlots.clear();
         drawSchedule();
@@ -721,9 +746,8 @@ public class CashierController {
     @FXML
     protected void onSellPackageButtonClick() {
         Member m = cboPackageMember.getValue();
-        LocalDate date = dpPackageDate.getValue();
-        if (m == null || date == null) {
-            FxHelper.showMessage(lblPackageResult, "กรุณาเลือกสมาชิกและวันที่", false);
+        if (m == null) {
+            FxHelper.showMessage(lblPackageResult, "กรุณาเลือกสมาชิก", false);
             return;
         }
         String error = center.checkPackage(m.getId());
@@ -731,11 +755,12 @@ public class CashierController {
             FxHelper.showMessage(lblPackageResult, error, false);
             return;
         }
-        if (!FxHelper.confirm("ยืนยันการขายแพ็กเกจ", lblPackageInfo.getText()))
+        if (!FxHelper.confirm("ยืนยันการขายแพ็กเกจ", lblPackageInfo.getText() + "\nวันที่ขาย " + LocalDate.now()))
             return;
-        HourPackage p = cashier.sellPackage(center, m.getId(), date);
+        // วันที่ขายคือวันนี้เสมอ ลงรายได้ย้อนหลังไม่ได้
+        HourPackage p = cashier.sellPackage(center, m.getId());
         FxHelper.showMessage(lblPackageResult, "ขายแพ็กเกจสำเร็จ " + p.getPackageId() + " ให้ "
-                + m.getId() + " " + m.getName(), true);
+                + m.getId() + " " + m.getName() + " วันที่ " + p.getDate(), true);
         tblMembers.refresh();
         updatePackageInfo();
         updateBookingForm();
@@ -865,7 +890,7 @@ public class CashierController {
             return;
         }
         // เปลี่ยนวันที่แล้วของเช่าวันนั้นอาจเต็ม ต้องตรวจตะกร้าใหม่
-        String error = center.checkItemOrders(new ArrayList<CartItem>(cart), getItemDate());
+        String error = center.checkItemOrders(new ArrayList<CartItem>(cart), getItemDate(), LocalDateTime.now());
         if (error != null) {
             lblCartTotal.getStyleClass().setAll("label", "price-box-error");
             lblCartTotal.setText("ทำรายการไม่ได้: " + error);
@@ -898,18 +923,23 @@ public class CashierController {
             return;
         }
         ArrayList<CartItem> lines = new ArrayList<CartItem>(cart);
-        String error = center.checkItemOrders(lines, date);
+        String error = center.checkItemOrders(lines, date, LocalDateTime.now());
         if (error != null) {
             FxHelper.showMessage(lblItemResult, error, false);
             return;
         }
         String detail = "";
         double total = 0;
+        boolean hasSaleItem = false;
         for (CartItem line : lines) {
             detail += line + "\n";
             total += line.getSubtotal();
+            if (line.getItem() instanceof SaleItem)
+                hasSaleItem = true;
         }
-        detail += "ยอดรวม " + FxHelper.money(total) + " บาท\nลูกค้า: " + customer + " | วันที่ " + date;
+        detail += "ยอดรวม " + FxHelper.money(total) + " บาท\nลูกค้า: " + customer + " | วันที่เช่า/ใช้ " + date;
+        if (hasSaleItem && !date.equals(LocalDate.now()))
+            detail += "\n(ของขายบันทึกเป็นวันที่ขาย " + LocalDate.now() + ")";
         if (!FxHelper.confirm("ยืนยันรายการเช่า/ซื้อ", detail))
             return;
 

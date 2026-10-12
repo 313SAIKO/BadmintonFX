@@ -13,24 +13,27 @@ public class Booking implements Chargeable {
     private int startHour;
     private int hours;
     private LocalDateTime bookedAt;  // เวลาที่ทำรายการจอง
+    private boolean lateStart;  // ชั่วโมงแรกเริ่มไปแล้วตอนจอง คิดครึ่งราคา และไม่นับชั่วโมงสะสม
     private int packageHours;   // ชั่วโมงที่หักจากแพ็กเกจ
     private int discountHours;  // ชั่วโมงที่ได้ส่วนลดเหลือ 30%
     private double courtFee;
     private PaymentSlip slip;   // Composition: สร้างภายใน constructor
 
-    public Booking(String bookingId, Member member, Court court, Cashier cashier, LocalDate date,
-                   int startHour, int hours, String slipNo, String slipFile, LocalDateTime bookedAt) {
+    // request คือคำขอจองที่คิดราคาแล้ว (BadmintonCenter.priceBookings) ราคาที่บันทึกจึงตรงกับที่แสดงก่อนยืนยัน
+    public Booking(String bookingId, Member member, Court court, Cashier cashier, BookingItem request,
+                   String slipNo, String slipFile, LocalDateTime bookedAt) {
         this.bookingId = bookingId;
         this.member = member;
         this.court = court;
         this.cashier = cashier;
-        this.date = date;
-        this.startHour = startHour;
-        this.hours = hours;
+        this.date = request.getDate();
+        this.startHour = request.getStartHour();
+        this.hours = request.getHours();
         this.bookedAt = bookedAt;
-        packageHours = member.countPackageHours(hours);
-        discountHours = member.countDiscountHours(hours);
-        courtFee = member.calculateCourtFee(hours, court.getPricePerHour());
+        lateStart = request.isLateStart();
+        packageHours = request.getPackageHours();
+        discountHours = request.getDiscountHours();
+        courtFee = request.getFee();
         if (courtFee > 0)
             slip = new PaymentSlip(slipNo, slipFile, courtFee);
         else
@@ -44,6 +47,7 @@ public class Booking implements Chargeable {
     public int getStartHour() { return startHour; }
     public int getHours() { return hours; }
     public LocalDateTime getBookedAt() { return bookedAt; }
+    public boolean isLateStart() { return lateStart; }
     public int getPackageHours() { return packageHours; }
     public int getDiscountHours() { return discountHours; }
     public PaymentSlip getSlip() { return slip; }
@@ -80,6 +84,8 @@ public class Booking implements Chargeable {
     @Override
     public String toString() {
         String detail = "";
+        if (lateStart)
+            detail += " ชม.แรกเริ่มไปแล้ว ครึ่งราคา";
         if (packageHours > 0)
             detail += " ใช้แพ็กเกจ " + packageHours + " ชม.";
         if (discountHours > 0)

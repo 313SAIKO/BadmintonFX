@@ -62,7 +62,10 @@
                             <VBox fx:id="boxSlip" spacing="8.0">
                                 <Label styleClass="section-title" text="3. แนบสลิปการชำระเงิน" />
                                 <HBox spacing="6.0">
-                                    <TextField fx:id="txtSlipNo" prefWidth="110.0" promptText="เลขที่สลิป" />
+                                    <TextField fx:id="txtSlipNo" promptText="เลขที่สลิป (ห้ามซ้ำ)" HBox.hgrow="ALWAYS" />
+                                    <TextField fx:id="txtSlipAmount" prefWidth="150.0" promptText="ยอดเงินในสลิป (บาท)" />
+                                </HBox>
+                                <HBox spacing="6.0">
                                     <TextField fx:id="txtSlipFile" editable="false" promptText="ยังไม่ได้แนบไฟล์"
                                                HBox.hgrow="ALWAYS" />
                                     <Button minWidth="-Infinity" onAction="#onChooseSlipButtonClick" text="แนบไฟล์..." />
@@ -88,7 +91,7 @@
                         </HBox>
                         <Label fx:id="lblScheduleTitle" styleClass="hint" wrapText="true" />
                         <Label styleClass="schedule-help" maxWidth="Infinity" wrapText="true"
-                               text="วิธีเลือก: คลิกช่องสีเขียวเพื่อเลือก/ยกเลิก  •  กดค้างแล้วลากเพื่อเลือกหลายชั่วโมง  •  Shift+คลิกเพื่อเลือกต่อเนื่อง  •  เลือกได้หลายสนาม และกด « » เพื่อเลือกวันอื่นเพิ่มในการจองครั้งเดียวกัน" />
+                               text="วิธีเลือก: คลิกช่องสีเขียวเพื่อเลือก/ยกเลิก  •  กดค้างแล้วลากเพื่อเลือกหลายชั่วโมง  •  Shift+คลิกเพื่อเลือกต่อเนื่อง  •  เลือกได้หลายสนาม และกด « » เพื่อเลือกวันอื่นเพิ่มในการจองครั้งเดียวกัน  •  ชั่วโมงที่เริ่มไปแล้วไม่เกิน 30 นาที จองได้ครึ่งราคา (½ ราคา)" />
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <Label styleClass="legend-free" text="ว่าง" />
                             <Label styleClass="legend-selected" text="ที่เลือก" />
@@ -137,9 +140,8 @@
                             <Label text="สมาชิก:" GridPane.rowIndex="0" />
                             <ComboBox fx:id="cboPackageMember" maxWidth="Infinity" promptText="เลือกสมาชิก"
                                       GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                            <Label text="วันที่ซื้อ:" GridPane.rowIndex="1" />
-                            <DatePicker fx:id="dpPackageDate" maxWidth="Infinity"
-                                        GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                            <Label text="วันที่ขาย:" GridPane.rowIndex="1" />
+                            <Label fx:id="lblPackageDate" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                         </GridPane>
                         <Label fx:id="lblPackageInfo" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
                         <Button onAction="#onSellPackageButtonClick" styleClass="primary-button" text="ขายแพ็กเกจ" />
@@ -185,7 +187,7 @@
                             <ComboBox fx:id="cboCustomer" editable="true" maxWidth="Infinity"
                                       promptText="พิมพ์ชื่อ หรือเลือกจากรายชื่อสมาชิก"
                                       GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                            <Label text="วันที่:" GridPane.rowIndex="1" />
+                            <Label text="วันที่ใช้:" GridPane.rowIndex="1" />
                             <DatePicker fx:id="dpItemDate" maxWidth="Infinity"
                                         GridPane.columnIndex="1" GridPane.rowIndex="1" />
                         </GridPane>
