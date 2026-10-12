@@ -157,6 +157,29 @@ public class BadmintonCenter {
         return order;
     }
 
+    // ตรวจทุกรายการในตะกร้า คืนข้อความบอกสาเหตุถ้าทำรายการไม่ได้ หรือ null ถ้าทำได้
+    public String checkItemOrders(ArrayList<CartItem> cart) {
+        if (cart.isEmpty())
+            return "ยังไม่มีรายการในตะกร้า";
+        for (CartItem c : cart) {
+            String error = checkItemOrder(c.getItem().getCode(), c.getQuantity());
+            if (error != null)
+                return error;
+        }
+        return null;
+    }
+
+    // เช่า/ซื้อหลายรายการในการซื้อครั้งเดียว ได้ ItemOrder แยกตามรายการ (เพื่อแยกหมวดรายได้เช่ากับขาย)
+    // คืนค่า null ถ้ามีรายการใดทำไม่ได้ และจะไม่บันทึกรายการไหนเลย
+    public ArrayList<ItemOrder> createItemOrders(ArrayList<CartItem> cart, LocalDate date, String customerName) {
+        if (checkItemOrders(cart) != null)
+            return null;
+        ArrayList<ItemOrder> orders = new ArrayList<ItemOrder>();
+        for (CartItem c : cart)
+            orders.add(createItemOrder(c.getItem().getCode(), c.getQuantity(), date, customerName));
+        return orders;
+    }
+
     // ---------- ค้นหาการจอง (Overloading) ----------
     // ค้นจากรหัสการจอง รหัสสมาชิก หรือบางส่วนของชื่อสมาชิก
     public ArrayList<Booking> searchBooking(String keyword) {
@@ -189,6 +212,25 @@ public class BadmintonCenter {
                 result.add(b);
         }
         return result;
+    }
+
+    // ---------- วันหยุด ----------
+    // การจองของวันนั้นที่จะอยู่นอกเวลาทำการ ถ้าวันนั้นเป็นวันหยุด (holiday = true) หรือวันธรรมดา (false)
+    // ใช้เตือนก่อนเพิ่ม/ลบวันหยุด เช่น วันธรรมดามีคนจอง 20:00-21:00 ไว้ แต่วันหยุดปิด 20:00
+    public ArrayList<Booking> findBookingsOutsideHours(LocalDate date, boolean holiday) {
+        int open = openingHours.getOpenHour(holiday);
+        int close = openingHours.getCloseHour(holiday);
+        ArrayList<Booking> result = new ArrayList<Booking>();
+        for (Booking b : searchBooking(date)) {
+            if (b.getStartHour() < open || b.getEndHour() > close)
+                result.add(b);
+        }
+        return result;
+    }
+
+    // การจองที่อยู่นอกเวลาทำการตามประเภทวันในตอนนี้
+    public ArrayList<Booking> findBookingsOutsideHours(LocalDate date) {
+        return findBookingsOutsideHours(date, openingHours.isHoliday(date));
     }
 
     // ---------- รายได้ ----------

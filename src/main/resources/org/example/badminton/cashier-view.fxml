@@ -5,6 +5,7 @@
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Spinner?>
@@ -34,71 +35,78 @@
     </top>
 
     <center>
-        <TabPane tabClosingPolicy="UNAVAILABLE">
+        <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE">
 
             <!-- ==================== จองสนาม ==================== -->
-            <Tab text="จองสนาม">
+            <Tab fx:id="tabBooking" text="จองสนาม">
                 <HBox spacing="16.0">
                     <padding>
                         <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
                     </padding>
 
-                    <ScrollPane fitToWidth="true" minWidth="420.0" prefWidth="420.0" styleClass="plain-scroll">
+                    <ScrollPane fitToWidth="true" minWidth="400.0" prefWidth="400.0" styleClass="plain-scroll">
                         <VBox spacing="10.0" styleClass="card">
-                            <Label styleClass="section-title" text="ข้อมูลการจอง" />
-                            <GridPane hgap="10.0" vgap="10.0">
+                            <Label styleClass="section-title" text="1. เลือกสมาชิก" />
+                            <TextField fx:id="txtMemberSearch" onAction="#onMemberSearchEnter"
+                                       promptText="พิมพ์รหัส ชื่อ หรือเบอร์โทร เพื่อค้นหา" />
+                            <ListView fx:id="lstMembers" prefHeight="88.0" />
+                            <Label fx:id="lblMemberInfo" maxWidth="Infinity" styleClass="hint" wrapText="true" />
+
+                            <Label styleClass="section-title" text="2. เลือกสนามและเวลา (จากตารางด้านขวา)" />
+                            <GridPane hgap="8.0" vgap="8.0">
                                 <columnConstraints>
-                                    <ColumnConstraints minWidth="105.0" />
-                                    <ColumnConstraints hgrow="ALWAYS" />
+                                    <ColumnConstraints percentWidth="20.0" />
+                                    <ColumnConstraints percentWidth="30.0" />
+                                    <ColumnConstraints percentWidth="20.0" />
+                                    <ColumnConstraints percentWidth="30.0" />
                                 </columnConstraints>
-                                <Label text="สมาชิก:" GridPane.rowIndex="0" />
-                                <ComboBox fx:id="cboMember" maxWidth="Infinity" promptText="เลือกสมาชิก"
+                                <Label text="สนาม:" GridPane.rowIndex="0" />
+                                <ComboBox fx:id="cboCourt" maxWidth="Infinity" promptText="-"
                                           GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                <Label text="วันที่:" GridPane.rowIndex="1" />
-                                <DatePicker fx:id="dpDate" maxWidth="Infinity"
-                                            GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                <Label text="สนาม:" GridPane.rowIndex="2" />
-                                <ComboBox fx:id="cboCourt" maxWidth="Infinity" promptText="เลือกสนาม 1-12"
-                                          GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                                <Label text="เวลาเริ่ม:" GridPane.rowIndex="3" />
+                                <Label text="เวลาเริ่ม:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
                                 <ComboBox fx:id="cboStartHour" maxWidth="Infinity"
-                                          GridPane.columnIndex="1" GridPane.rowIndex="3" />
-                                <Label text="จำนวนชั่วโมง:" GridPane.rowIndex="4" />
+                                          GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                                <Label text="ชั่วโมง:" GridPane.rowIndex="1" />
                                 <Spinner fx:id="spnHours" initialValue="1" max="11" min="1" maxWidth="Infinity"
-                                         GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                         GridPane.columnIndex="1" GridPane.rowIndex="1" />
                             </GridPane>
 
-                            <Label fx:id="lblMemberInfo" styleClass="hint" wrapText="true" />
                             <Label fx:id="lblPrice" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
 
-                            <GridPane hgap="10.0" vgap="10.0">
-                                <columnConstraints>
-                                    <ColumnConstraints minWidth="105.0" />
-                                    <ColumnConstraints hgrow="ALWAYS" />
-                                </columnConstraints>
-                                <Label text="เลขที่สลิป:" GridPane.rowIndex="0" />
-                                <TextField fx:id="txtSlipNo" promptText="เลขอ้างอิงการโอน"
-                                           GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                <Label text="ไฟล์สลิป:" GridPane.rowIndex="1" />
-                                <HBox spacing="6.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                    <TextField fx:id="txtSlipFile" editable="false" promptText="ยังไม่ได้แนบ"
+                            <VBox fx:id="boxSlip" spacing="8.0">
+                                <Label styleClass="section-title" text="3. แนบสลิปการชำระเงิน" />
+                                <HBox spacing="6.0">
+                                    <TextField fx:id="txtSlipNo" prefWidth="110.0" promptText="เลขที่สลิป" />
+                                    <TextField fx:id="txtSlipFile" editable="false" promptText="ยังไม่ได้แนบไฟล์"
                                                HBox.hgrow="ALWAYS" />
-                                    <Button onAction="#onChooseSlipButtonClick" text="แนบไฟล์..." />
+                                    <Button minWidth="-Infinity" onAction="#onChooseSlipButtonClick" text="แนบไฟล์..." />
                                 </HBox>
-                            </GridPane>
+                            </VBox>
 
-                            <Button maxWidth="Infinity" onAction="#onBookButtonClick"
+                            <Button fx:id="btnBook" maxWidth="Infinity" onAction="#onBookButtonClick"
                                     styleClass="primary-button" text="ยืนยันการจอง" />
                             <Label fx:id="lblBookResult" wrapText="true" />
+                            <Button fx:id="btnRentForMember" managed="false" maxWidth="Infinity"
+                                    onAction="#onRentForMemberButtonClick" visible="false" />
                         </VBox>
                     </ScrollPane>
 
                     <VBox spacing="8.0" styleClass="card" HBox.hgrow="ALWAYS">
-                        <Label fx:id="lblScheduleTitle" styleClass="section-title" wrapText="true" />
+                        <HBox alignment="CENTER_LEFT" spacing="6.0">
+                            <Label styleClass="section-title" text="ตารางสนาม" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button onAction="#onPrevDayButtonClick" text="« วันก่อน" />
+                            <DatePicker fx:id="dpDate" prefWidth="140.0" />
+                            <Button onAction="#onNextDayButtonClick" text="วันถัดไป »" />
+                            <Button onAction="#onTodayButtonClick" text="วันนี้" />
+                        </HBox>
+                        <Label fx:id="lblScheduleTitle" styleClass="hint" wrapText="true" />
+                        <Label styleClass="schedule-help" maxWidth="Infinity" wrapText="true"
+                               text="วิธีเลือก: คลิกช่องสีเขียวช่องแรก แล้วคลิกช่องสุดท้ายในสนามเดียวกัน (หรือกดค้างแล้วลากลง) เพื่อจองหลายชั่วโมง  •  คลิกช่องที่เลือกไว้ซ้ำเพื่อยกเลิก" />
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <Label styleClass="legend-free" text="ว่าง (คลิกเพื่อเลือก)" />
-                            <Label styleClass="legend-booked" text="จองแล้ว" />
                             <Label styleClass="legend-selected" text="ช่วงที่เลือก" />
+                            <Label styleClass="legend-booked" text="จองแล้ว (ชี้เพื่อดูรายละเอียด)" />
                             <Label styleClass="legend-conflict" text="ทับกับการจองอื่น" />
                         </HBox>
                         <ScrollPane fitToWidth="true" styleClass="plain-scroll" VBox.vgrow="ALWAYS">
@@ -121,6 +129,7 @@
                         <Button onAction="#onRegisterButtonClick" styleClass="primary-button" text="สมัครสมาชิก" />
                         <Label fx:id="lblRegisterResult" wrapText="true" />
                     </HBox>
+                    <Label styleClass="hint" text="ดับเบิลคลิกที่สมาชิกเพื่อไปจองสนามให้สมาชิกคนนั้น" />
                     <TableView fx:id="tblMembers" VBox.vgrow="ALWAYS" />
                 </VBox>
             </Tab>
@@ -153,34 +162,49 @@
             </Tab>
 
             <!-- ==================== อุปกรณ์ ==================== -->
-            <Tab text="เช่า/ซื้ออุปกรณ์">
+            <Tab fx:id="tabItems" text="เช่า/ซื้ออุปกรณ์">
                 <HBox spacing="16.0">
                     <padding>
                         <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
                     </padding>
-                    <TableView fx:id="tblItems" HBox.hgrow="ALWAYS" />
-                    <VBox minWidth="360.0" prefWidth="360.0" spacing="10.0" styleClass="card">
-                        <Label styleClass="section-title" text="ทำรายการเช่า/ซื้อ" />
-                        <Label fx:id="lblSelectedItem" wrapText="true" />
+
+                    <VBox spacing="10.0" styleClass="card" HBox.hgrow="ALWAYS">
+                        <Label styleClass="section-title" text="1. เลือกอุปกรณ์" />
+                        <Label styleClass="hint" wrapText="true"
+                               text="ดับเบิลคลิกที่อุปกรณ์เพื่อเพิ่มลงตะกร้า หรือเลือกแล้วกดปุ่ม &quot;เพิ่มลงตะกร้า&quot; ใส่ได้หลายรายการทั้งของเช่าและของขาย" />
+                        <TableView fx:id="tblItems" VBox.vgrow="ALWAYS" />
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <Label fx:id="lblSelectedItem" maxWidth="Infinity" wrapText="true" HBox.hgrow="ALWAYS" />
+                            <Label text="จำนวน:" />
+                            <Spinner fx:id="spnQuantity" initialValue="1" max="50" min="1" prefWidth="80.0" />
+                            <Button onAction="#onAddToCartButtonClick" styleClass="primary-button" text="เพิ่มลงตะกร้า" />
+                        </HBox>
+                    </VBox>
+
+                    <VBox minWidth="430.0" prefWidth="430.0" spacing="10.0" styleClass="card">
+                        <HBox alignment="CENTER_LEFT">
+                            <Label styleClass="section-title" text="2. ตะกร้า" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button onAction="#onClearCartButtonClick" text="ล้างตะกร้า" />
+                        </HBox>
+                        <TableView fx:id="tblCart" VBox.vgrow="ALWAYS" />
                         <GridPane hgap="10.0" vgap="10.0">
                             <columnConstraints>
-                                <ColumnConstraints minWidth="90.0" />
+                                <ColumnConstraints minWidth="70.0" />
                                 <ColumnConstraints hgrow="ALWAYS" />
                             </columnConstraints>
-                            <Label text="จำนวน:" GridPane.rowIndex="0" />
-                            <Spinner fx:id="spnQuantity" initialValue="1" max="50" min="1" maxWidth="Infinity"
-                                     GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                            <Label text="ลูกค้า:" GridPane.rowIndex="1" />
-                            <TextField fx:id="txtCustomer" promptText="ชื่อผู้เล่น"
-                                       GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                            <Label text="วันที่:" GridPane.rowIndex="2" />
+                            <Label text="ลูกค้า:" GridPane.rowIndex="0" />
+                            <ComboBox fx:id="cboCustomer" editable="true" maxWidth="Infinity"
+                                      promptText="พิมพ์ชื่อ หรือเลือกจากรายชื่อสมาชิก"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                            <Label text="วันที่:" GridPane.rowIndex="1" />
                             <DatePicker fx:id="dpItemDate" maxWidth="Infinity"
-                                        GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                        GridPane.columnIndex="1" GridPane.rowIndex="1" />
                         </GridPane>
-                        <Label fx:id="lblItemTotal" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
-                        <Button maxWidth="Infinity" onAction="#onSellItemButtonClick"
-                                styleClass="primary-button" text="บันทึกรายการ" />
-                        <Label fx:id="lblItemResult" wrapText="true" />
+                        <Label fx:id="lblCartTotal" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
+                        <Button fx:id="btnCheckout" maxWidth="Infinity" onAction="#onCheckoutButtonClick"
+                                styleClass="primary-button" text="ยืนยันรายการ" />
+                        <Label fx:id="lblItemResult" minHeight="-Infinity" wrapText="true" />
                     </VBox>
                 </HBox>
             </Tab>

@@ -9,7 +9,9 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TableView;
+import javafx.scene.control.cell.TextFieldListCell;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,7 +37,7 @@ public class AdminController {
     @FXML private StackedBarChart<String, Number> chartMonthly;
 
     // ----- แท็บวันหยุด -----
-    @FXML private ListView<String> lstHolidays;
+    @FXML private ListView<LocalDate> lstHolidays;
     @FXML private DatePicker dpHoliday;
     @FXML private Label lblHolidayResult;
 
@@ -55,6 +57,7 @@ public class AdminController {
         tblDaily.setPlaceholder(new Label("ไม่มีรายได้ในวันนี้"));
         FxHelper.setupDatePicker(dpDaily);
         FxHelper.setupDatePicker(dpHoliday);
+        lstHolidays.setCellFactory(TextFieldListCell.forListView(holidayConverter()));
         dpDaily.setValue(today);
         dpHoliday.setValue(today);
 
@@ -159,9 +162,37 @@ public class AdminController {
 
     // ==================== วันหยุดนักขัตฤกษ์ ====================
     private void showHolidays() {
-        lstHolidays.getItems().clear();
-        for (LocalDate d : center.getOpeningHours().getPublicHolidays())
-            lstHolidays.getItems().add(center.getOpeningHours().describe(d));
+        lstHolidays.setItems(FXCollections.observableArrayList(center.getOpeningHours().getPublicHolidays()));
+    }
+
+    // แสดงวันหยุดพร้อมเวลาเปิด-ปิด และบอกถ้ามีการจองที่เกินเวลาทำการ
+    private StringConverter<LocalDate> holidayConverter() {
+        return new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                if (date == null)
+                    return "";
+                String text = center.getOpeningHours().describe(date);
+                int outside = center.findBookingsOutsideHours(date).size();
+                if (outside > 0)
+                    text += "  [มีการจองนอกเวลาทำการ " + outside + " รายการ]";
+                return text;
+            }
+
+            @Override
+            public LocalDate fromString(String text) {
+                return null;
+            }
+        };
+    }
+
+    // รายการจองที่จะเกินเวลาทำการ แสดงในกล่องยืนยัน
+    private String describeBookings(ArrayList<Booking> bookings) {
+        String text = "";
+        for (Booking b : bookings)
+            text += "\n- " + b.getBookingId() + " " + b.getCourt() + " " + b.getTimeText() + " "
+                    + b.getMember().getId() + " " + b.getMember().getName() + " (โทร " + b.getMember().getPhone() + ")";
+        return text;
     }
 
     @FXML
@@ -171,12 +202,52 @@ public class AdminController {
             FxHelper.showMessage(lblHolidayResult, "กรุณาเลือกวันที่", false);
             return;
         }
-        if (center.getOpeningHours().isPublicHoliday(date)) {
+        OpeningHours oh = center.getOpeningHours();
+        if (oh.isPublicHoliday(date)) {
             FxHelper.showMessage(lblHolidayResult, date + " เป็นวันหยุดอยู่แล้ว", false);
             return;
         }
-        center.getOpeningHours().addPublicHoliday(date);
+        ArrayList<Booking> affected = center.findBookingsOutsideHours(date, true);
+        if (!affected.isEmpty() && !FxHelper.confirm("มีการจองที่จะเกินเวลาทำการ",
+                "ถ้าให้ " + date + " เป็นวันหยุด ศูนย์จะเปิด " + oh.getOpenHour(true) + ":00 - "
+                        + oh.getCloseHour(true) + ":00 น.\nการจอง " + affected.size()
+                        + " รายการนี้จะอยู่นอกเวลาทำการ ควรติดต่อสมาชิกเพื่อเลื่อนเวลา:"
+                        + describeBookings(affected) + "\n\nยืนยันเพิ่มวันหยุดหรือไม่?"))
+            return;
+
+        admin.addPublicHoliday(center, date);
         showHolidays();
-        FxHelper.showMessage(lblHolidayResult, "เพิ่มวันหยุด " + date + " แล้ว (เปิด 10:00 - 20:00 น.)", true);
+        lstHolidays.getSelectionModel().select(date);
+        String message = "เพิ่มวันหยุด " + date + " แล้ว (เปิด 10:00 - 20:00 น.)";
+        if (!affected.isEmpty())
+            message += " | มีการจองนอกเวลาทำการ " + affected.size() + " รายการ ต้องติดต่อสมาชิก";
+        FxHelper.showMessage(lblHolidayResult, message, affected.isEmpty());
+    }
+
+    @FXML
+    protected void onRemoveHolidayButtonClick() {
+        LocalDate date = lstHolidays.getSelectionModel().getSelectedItem();
+        if (date == null) {
+            FxHelper.showMessage(lblHolidayResult, "กรุณาเลือกวันหยุดจากรายการที่ต้องการลบ", false);
+            return;
+        }
+        // ถ้าตรงกับเสาร์-อาทิตย์ ลบแล้วก็ยังเป็นวันหยุดอยู่ เวลาเปิด-ปิดไม่เปลี่ยน
+        OpeningHours oh = center.getOpeningHours();
+        boolean holidayAfter = oh.isWeekend(date);
+        ArrayList<Booking> affected = center.findBookingsOutsideHours(date, holidayAfter);
+        String message = "ลบวันหยุด " + date + " หรือไม่?\nหลังลบ วันนั้นจะเปิด " + oh.getOpenHour(holidayAfter)
+                + ":00 - " + oh.getCloseHour(holidayAfter) + ":00 น.";
+        if (!affected.isEmpty())
+            message += "\n\nการจอง " + affected.size() + " รายการนี้จะอยู่นอกเวลาทำการ ควรติดต่อสมาชิกเพื่อเลื่อนเวลา:"
+                    + describeBookings(affected);
+        if (!FxHelper.confirm("ยืนยันการลบวันหยุด", message))
+            return;
+
+        admin.removePublicHoliday(center, date);
+        showHolidays();
+        String result = "ลบวันหยุด " + date + " แล้ว";
+        if (!affected.isEmpty())
+            result += " | มีการจองนอกเวลาทำการ " + affected.size() + " รายการ ต้องติดต่อสมาชิก";
+        FxHelper.showMessage(lblHolidayResult, result, affected.isEmpty());
     }
 }

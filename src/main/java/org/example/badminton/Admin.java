@@ -26,6 +26,14 @@ public class Admin extends Person {
         return m.getBookings();
     }
 
+    public void addPublicHoliday(BadmintonCenter center, LocalDate date) {
+        center.getOpeningHours().addPublicHoliday(date);
+    }
+
+    public void removePublicHoliday(BadmintonCenter center, LocalDate date) {
+        center.getOpeningHours().removePublicHoliday(date);
+    }
+
     // Overloading: ดูรายการรายได้ของวัน หรือของเดือน
     public ArrayList<Chargeable> viewTransactions(BadmintonCenter center, LocalDate date) {
         return center.getTransactions(date);

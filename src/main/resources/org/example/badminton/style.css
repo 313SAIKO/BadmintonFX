@@ -60,6 +60,24 @@
     -fx-background-color: #185a4a;
 }
 
+.primary-button:disabled {
+    -fx-opacity: 0.45;
+}
+
+.small-button {
+    -fx-padding: 1 8 1 8;
+    -fx-min-width: 38;
+    -fx-cursor: hand;
+}
+
+.schedule-help {
+    -fx-background-color: #eaf2f8;
+    -fx-text-fill: #1b4f72;
+    -fx-padding: 6 10 6 10;
+    -fx-background-radius: 6;
+    -fx-font-size: 13px;
+}
+
 .price-box, .price-box-error {
     -fx-padding: 10;
     -fx-background-radius: 6;
@@ -98,9 +116,9 @@
     -fx-alignment: center;
 }
 
-.slot-free, .slot-booked, .slot-selected, .slot-conflict {
-    -fx-min-width: 52;
-    -fx-min-height: 30;
+.slot-free, .slot-booked, .slot-selected, .slot-conflict, .slot-closed {
+    -fx-min-width: 48;
+    -fx-min-height: 34;
     -fx-alignment: center;
     -fx-background-radius: 4;
     -fx-font-size: 12px;
@@ -122,11 +140,31 @@
 
 .slot-selected {
     -fx-background-color: #2e86c1;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+
+.slot-selected:hover {
+    -fx-background-color: #2471a3;
 }
 
 .slot-conflict {
     -fx-background-color: #c0392b;
     -fx-text-fill: white;
+}
+
+.slot-closed {
+    -fx-background-color: #e5e8e8;
+}
+
+.member-box {
+    -fx-background-color: #eaf2f8;
+    -fx-text-fill: #1b4f72;
+    -fx-font-weight: bold;
+    -fx-padding: 6 10 6 10;
+    -fx-background-radius: 6;
 }
 
 .legend-free, .legend-booked, .legend-selected, .legend-conflict {

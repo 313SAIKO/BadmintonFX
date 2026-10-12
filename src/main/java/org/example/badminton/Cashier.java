@@ -36,6 +36,12 @@ public class Cashier extends Person {
         return center.createItemOrder(itemCode, quantity, date, customerName);
     }
 
+    // เช่า/ซื้อหลายรายการจากตะกร้าพร้อมกันในครั้งเดียว
+    public ArrayList<ItemOrder> sellItems(BadmintonCenter center, ArrayList<CartItem> cart,
+                                          LocalDate date, String customerName) {
+        return center.createItemOrders(cart, date, customerName);
+    }
+
     // Overloading: ค้นหาการจองได้ 3 แบบ ชื่อเมธอดเดียวกันแต่ parameter ต่างกัน
     public ArrayList<Booking> searchBooking(BadmintonCenter center, String keyword) {
         return center.searchBooking(keyword);

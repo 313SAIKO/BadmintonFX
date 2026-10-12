@@ -25,27 +25,44 @@ public class OpeningHours {
         }
     }
 
+    public void removePublicHoliday(LocalDate date) {
+        publicHolidays.remove(date);
+    }
+
     public ArrayList<LocalDate> getPublicHolidays() { return publicHolidays; }
 
     public boolean isPublicHoliday(LocalDate date) {
         return publicHolidays.contains(date);
     }
 
-    // เสาร์ อาทิตย์ หรือวันหยุดนักขัตฤกษ์
-    public boolean isHoliday(LocalDate date) {
+    public boolean isWeekend(LocalDate date) {
         DayOfWeek day = date.getDayOfWeek();
-        return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY || isPublicHoliday(date);
+        return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
     }
 
+    // เสาร์ อาทิตย์ หรือวันหยุดนักขัตฤกษ์
+    public boolean isHoliday(LocalDate date) {
+        return isWeekend(date) || isPublicHoliday(date);
+    }
+
+    // Overloading: ถามเวลาเปิด-ปิดจากวันที่ หรือจากประเภทวัน (ใช้ตรวจล่วงหน้าก่อนเพิ่ม/ลบวันหยุด)
     public int getOpenHour(LocalDate date) {
-        if (isHoliday(date))
+        return getOpenHour(isHoliday(date));
+    }
+
+    public int getOpenHour(boolean holiday) {
+        if (holiday)
             return HOLIDAY_OPEN;
         else
             return WEEKDAY_OPEN;
     }
 
     public int getCloseHour(LocalDate date) {
-        if (isHoliday(date))
+        return getCloseHour(isHoliday(date));
+    }
+
+    public int getCloseHour(boolean holiday) {
+        if (holiday)
             return HOLIDAY_CLOSE;
         else
             return WEEKDAY_CLOSE;

@@ -107,7 +107,11 @@
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <DatePicker fx:id="dpHoliday" prefWidth="170.0" />
                             <Button onAction="#onAddHolidayButtonClick" styleClass="primary-button" text="เพิ่มวันหยุด" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button onAction="#onRemoveHolidayButtonClick" text="ลบวันหยุดที่เลือก" />
                         </HBox>
+                        <Label styleClass="hint" wrapText="true"
+                               text="ถ้าเพิ่มหรือลบวันหยุดแล้วทำให้การจองที่มีอยู่เกินเวลาทำการ ระบบจะแสดงรายการให้ยืนยันก่อน" />
                         <Label fx:id="lblHolidayResult" wrapText="true" />
                     </VBox>
                 </VBox>
