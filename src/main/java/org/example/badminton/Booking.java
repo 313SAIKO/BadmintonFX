@@ -1,6 +1,7 @@
 package org.example.badminton;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 // การจองสนาม 1 ครั้ง
 public class Booking implements Chargeable {
@@ -11,13 +12,14 @@ public class Booking implements Chargeable {
     private LocalDate date;
     private int startHour;
     private int hours;
+    private LocalDateTime bookedAt;  // เวลาที่ทำรายการจอง
     private int packageHours;   // ชั่วโมงที่หักจากแพ็กเกจ
     private int discountHours;  // ชั่วโมงที่ได้ส่วนลดเหลือ 30%
     private double courtFee;
     private PaymentSlip slip;   // Composition: สร้างภายใน constructor
 
-    public Booking(String bookingId, Member member, Court court, Cashier cashier,
-                   LocalDate date, int startHour, int hours, String slipNo, String slipFile) {
+    public Booking(String bookingId, Member member, Court court, Cashier cashier, LocalDate date,
+                   int startHour, int hours, String slipNo, String slipFile, LocalDateTime bookedAt) {
         this.bookingId = bookingId;
         this.member = member;
         this.court = court;
@@ -25,6 +27,7 @@ public class Booking implements Chargeable {
         this.date = date;
         this.startHour = startHour;
         this.hours = hours;
+        this.bookedAt = bookedAt;
         packageHours = member.countPackageHours(hours);
         discountHours = member.countDiscountHours(hours);
         courtFee = member.calculateCourtFee(hours, court.getPricePerHour());
@@ -40,6 +43,7 @@ public class Booking implements Chargeable {
     public Cashier getCashier() { return cashier; }
     public int getStartHour() { return startHour; }
     public int getHours() { return hours; }
+    public LocalDateTime getBookedAt() { return bookedAt; }
     public int getPackageHours() { return packageHours; }
     public int getDiscountHours() { return discountHours; }
     public PaymentSlip getSlip() { return slip; }

@@ -52,25 +52,11 @@
                             <ListView fx:id="lstMembers" prefHeight="88.0" />
                             <Label fx:id="lblMemberInfo" maxWidth="Infinity" styleClass="hint" wrapText="true" />
 
-                            <Label styleClass="section-title" text="2. เลือกสนามและเวลา (จากตารางด้านขวา)" />
-                            <GridPane hgap="8.0" vgap="8.0">
-                                <columnConstraints>
-                                    <ColumnConstraints percentWidth="20.0" />
-                                    <ColumnConstraints percentWidth="30.0" />
-                                    <ColumnConstraints percentWidth="20.0" />
-                                    <ColumnConstraints percentWidth="30.0" />
-                                </columnConstraints>
-                                <Label text="สนาม:" GridPane.rowIndex="0" />
-                                <ComboBox fx:id="cboCourt" maxWidth="Infinity" promptText="-"
-                                          GridPane.columnIndex="1" GridPane.rowIndex="0" />
-                                <Label text="เวลาเริ่ม:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-                                <ComboBox fx:id="cboStartHour" maxWidth="Infinity"
-                                          GridPane.columnIndex="3" GridPane.rowIndex="0" />
-                                <Label text="ชั่วโมง:" GridPane.rowIndex="1" />
-                                <Spinner fx:id="spnHours" initialValue="1" max="11" min="1" maxWidth="Infinity"
-                                         GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                            </GridPane>
-
+                            <HBox alignment="CENTER_LEFT">
+                                <Label styleClass="section-title" text="2. เลือกสนามและเวลา (จากตาราง)" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button fx:id="btnClearSlots" onAction="#onClearSlotsButtonClick" text="ล้างที่เลือก" />
+                            </HBox>
                             <Label fx:id="lblPrice" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
 
                             <VBox fx:id="boxSlip" spacing="8.0">
@@ -102,12 +88,13 @@
                         </HBox>
                         <Label fx:id="lblScheduleTitle" styleClass="hint" wrapText="true" />
                         <Label styleClass="schedule-help" maxWidth="Infinity" wrapText="true"
-                               text="วิธีเลือก: คลิกช่องสีเขียวช่องแรก แล้วคลิกช่องสุดท้ายในสนามเดียวกัน (หรือกดค้างแล้วลากลง) เพื่อจองหลายชั่วโมง  •  คลิกช่องที่เลือกไว้ซ้ำเพื่อยกเลิก" />
+                               text="วิธีเลือก: คลิกช่องสีเขียวเพื่อเลือก/ยกเลิก  •  กดค้างแล้วลากเพื่อเลือกหลายชั่วโมง  •  Shift+คลิกเพื่อเลือกต่อเนื่อง  •  เลือกได้หลายสนาม และกด « » เพื่อเลือกวันอื่นเพิ่มในการจองครั้งเดียวกัน" />
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
-                            <Label styleClass="legend-free" text="ว่าง (คลิกเพื่อเลือก)" />
-                            <Label styleClass="legend-selected" text="ช่วงที่เลือก" />
+                            <Label styleClass="legend-free" text="ว่าง" />
+                            <Label styleClass="legend-selected" text="ที่เลือก" />
                             <Label styleClass="legend-booked" text="จองแล้ว (ชี้เพื่อดูรายละเอียด)" />
-                            <Label styleClass="legend-conflict" text="ทับกับการจองอื่น" />
+                            <Label styleClass="legend-closed" text="ผ่านไปแล้ว / นอกเวลาทำการ" />
+                            <Label styleClass="legend-conflict" text="จองไม่ได้" />
                         </HBox>
                         <ScrollPane fitToWidth="true" styleClass="plain-scroll" VBox.vgrow="ALWAYS">
                             <GridPane fx:id="gridSchedule" hgap="4.0" vgap="4.0" />
@@ -175,9 +162,10 @@
                         <TableView fx:id="tblItems" VBox.vgrow="ALWAYS" />
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <Label fx:id="lblSelectedItem" maxWidth="Infinity" wrapText="true" HBox.hgrow="ALWAYS" />
-                            <Label text="จำนวน:" />
-                            <Spinner fx:id="spnQuantity" initialValue="1" max="50" min="1" prefWidth="80.0" />
-                            <Button onAction="#onAddToCartButtonClick" styleClass="primary-button" text="เพิ่มลงตะกร้า" />
+                            <Label minWidth="-Infinity" text="จำนวน:" />
+                            <Spinner fx:id="spnQuantity" initialValue="1" max="50" min="1" minWidth="80.0" prefWidth="80.0" />
+                            <Button minWidth="-Infinity" onAction="#onAddToCartButtonClick" styleClass="primary-button"
+                                    text="เพิ่มลงตะกร้า" />
                         </HBox>
                     </VBox>
 
@@ -201,7 +189,8 @@
                             <DatePicker fx:id="dpItemDate" maxWidth="Infinity"
                                         GridPane.columnIndex="1" GridPane.rowIndex="1" />
                         </GridPane>
-                        <Label fx:id="lblCartTotal" maxWidth="Infinity" styleClass="price-box" wrapText="true" />
+                        <Label fx:id="lblCartTotal" maxWidth="Infinity" minHeight="-Infinity" styleClass="price-box"
+                               wrapText="true" />
                         <Button fx:id="btnCheckout" maxWidth="Infinity" onAction="#onCheckoutButtonClick"
                                 styleClass="primary-button" text="ยืนยันรายการ" />
                         <Label fx:id="lblItemResult" minHeight="-Infinity" wrapText="true" />

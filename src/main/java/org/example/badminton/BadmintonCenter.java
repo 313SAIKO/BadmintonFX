@@ -1,6 +1,7 @@
 package org.example.badminton;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 // ศูนย์แบดมินตัน: เก็บสนาม สมาชิก อุปกรณ์ การจอง และรายการที่ทำให้เกิดรายได้ทั้งหมด
@@ -82,14 +83,23 @@ public class BadmintonCenter {
         return true;
     }
 
-    // คืนข้อความบอกสาเหตุถ้าจองไม่ได้ หรือ null ถ้าจองได้
-    public String checkBooking(String memberId, int courtNo, LocalDate date, int startHour, int hours) {
+    // จองย้อนหลังไม่ได้: ชั่วโมงที่ผ่านไปแล้วจองไม่ได้
+    // ชั่วโมงที่กำลังเป็นอยู่ยังจองได้ (ลูกค้า walk-in ที่มาถึงเคาน์เตอร์ระหว่างชั่วโมง)
+    public boolean isPastTime(LocalDate date, int hour, LocalDateTime now) {
+        return date.isBefore(now.toLocalDate()) || (date.equals(now.toLocalDate()) && hour < now.getHour());
+    }
+
+    // คืนข้อความบอกสาเหตุถ้าจองไม่ได้ หรือ null ถ้าจองได้ (bookedAt = เวลาที่ทำรายการจอง)
+    public String checkBooking(String memberId, int courtNo, LocalDate date, int startHour, int hours,
+                               LocalDateTime bookedAt) {
         if (findMember(memberId) == null)
             return "ไม่พบสมาชิกรหัส " + memberId + " (ต้องสมัครสมาชิกก่อนจึงจะจองได้)";
         if (getCourt(courtNo) == null)
             return "ไม่มีสนามหมายเลข " + courtNo + " (มีสนาม 1-" + COURT_COUNT + ")";
         if (hours < 1)
             return "ต้องจองอย่างน้อย 1 ชั่วโมง";
+        if (isPastTime(date, startHour, bookedAt))
+            return "จองย้อนหลังไม่ได้ เวลา " + String.format("%02d:00", startHour) + " ของวันที่ " + date + " ผ่านไปแล้ว";
         if (!openingHours.isOpen(date, startHour, hours))
             return "ช่วงเวลาที่จองอยู่นอกเวลาทำการ: " + openingHours.describe(date);
         if (!isCourtAvailable(courtNo, date, startHour, hours))
@@ -97,22 +107,57 @@ public class BadmintonCenter {
         return null;
     }
 
-    // คืนค่า null ถ้าจองไม่ได้ (ข้อมูลไม่ถูกต้อง หรือมียอดชำระแต่ไม่มีสลิป)
-    public Booking createBooking(Cashier cashier, String memberId, int courtNo, LocalDate date,
-                                 int startHour, int hours, String slipNo, String slipFile) {
-        if (checkBooking(memberId, courtNo, date, startHour, hours) != null)
+    // ตรวจคำขอจองทุกรายการ รวมถึงรายการที่ทับกันเองในการจองครั้งเดียวกัน
+    public String checkBookings(String memberId, ArrayList<BookingItem> requests, LocalDateTime bookedAt) {
+        if (requests.isEmpty())
+            return "ยังไม่ได้เลือกสนามและเวลา";
+        for (int i = 0; i < requests.size(); i++) {
+            BookingItem r = requests.get(i);
+            String error = checkBooking(memberId, r.getCourtNo(), r.getDate(), r.getStartHour(), r.getHours(), bookedAt);
+            if (error != null)
+                return r + ": " + error;
+            for (int j = 0; j < i; j++) {
+                if (r.overlaps(requests.get(j)))
+                    return r + ": ทับกับรายการอื่นที่เลือกไว้";
+            }
+        }
+        return null;
+    }
+
+    // จองหลายสนาม/หลายวันในครั้งเดียว ใช้สลิปใบเดียวกัน (แต่ละการจองเก็บยอดส่วนของตัวเองในสลิป)
+    // จองตามลำดับในรายการ ชั่วโมงสะสมและแพ็กเกจจะต่อกันเหมือน Member.priceItems()
+    // คืนค่า null ถ้ามีรายการใดจองไม่ได้ หรือมียอดชำระแต่ไม่มีสลิป (จะไม่บันทึกรายการไหนเลย)
+    public ArrayList<Booking> createBookings(Cashier cashier, String memberId, ArrayList<BookingItem> requests,
+                                             String slipNo, String slipFile, LocalDateTime bookedAt) {
+        if (checkBookings(memberId, requests, bookedAt) != null)
             return null;
         Member m = findMember(memberId);
-        double fee = m.calculateCourtFee(hours, Court.PRICE_PER_HOUR);
-        if (fee > 0 && (slipNo == null || slipNo.trim().isEmpty()))
+        double total = m.priceItems(requests, Court.PRICE_PER_HOUR);
+        if (total > 0 && (slipNo == null || slipNo.trim().isEmpty()))
             return null;
-        String bookingId = String.format("B%04d", bookings.size() + 1);
-        Booking b = new Booking(bookingId, m, getCourt(courtNo), cashier, date, startHour, hours, slipNo, slipFile);
-        m.useHours(hours);
-        m.addBooking(b);
-        bookings.add(b);
-        transactions.add(b);
-        return b;
+        ArrayList<Booking> result = new ArrayList<Booking>();
+        for (BookingItem r : requests) {
+            String bookingId = String.format("B%04d", bookings.size() + 1);
+            Booking b = new Booking(bookingId, m, getCourt(r.getCourtNo()), cashier, r.getDate(),
+                    r.getStartHour(), r.getHours(), slipNo, slipFile, bookedAt);
+            m.useHours(r.getHours());
+            m.addBooking(b);
+            bookings.add(b);
+            transactions.add(b);
+            result.add(b);
+        }
+        return result;
+    }
+
+    // จอง 1 รายการ คืนค่า null ถ้าจองไม่ได้
+    public Booking createBooking(Cashier cashier, String memberId, int courtNo, LocalDate date, int startHour,
+                                 int hours, String slipNo, String slipFile, LocalDateTime bookedAt) {
+        ArrayList<BookingItem> requests = new ArrayList<BookingItem>();
+        requests.add(new BookingItem(courtNo, date, startHour, hours));
+        ArrayList<Booking> result = createBookings(cashier, memberId, requests, slipNo, slipFile, bookedAt);
+        if (result == null)
+            return null;
+        return result.get(0);
     }
 
     // ---------- แพ็กเกจ ----------
@@ -137,20 +182,23 @@ public class BadmintonCenter {
     }
 
     // ---------- เช่า/ขายอุปกรณ์ ----------
-    public String checkItemOrder(String itemCode, int quantity) {
+    // ของเช่าดูจำนวนว่างของวันนั้น ส่วนของขายดูสต็อกคงเหลือ
+    public String checkItemOrder(String itemCode, int quantity, LocalDate date) {
         Item item = findItem(itemCode);
         if (item == null)
             return "ไม่พบอุปกรณ์รหัส " + itemCode;
-        if (!item.isAvailable(quantity))
-            return "จำนวนไม่ถูกต้องหรือมีของไม่พอ: " + item;
+        if (quantity < 1)
+            return "จำนวนต้องมากกว่า 0";
+        if (!item.isAvailable(quantity, date))
+            return "มีของไม่พอ: " + item.getName() + " วันที่ " + date + " " + item.getStockInfo(date);
         return null;
     }
 
     public ItemOrder createItemOrder(String itemCode, int quantity, LocalDate date, String customerName) {
-        if (checkItemOrder(itemCode, quantity) != null)
+        if (checkItemOrder(itemCode, quantity, date) != null)
             return null;
         Item item = findItem(itemCode);
-        item.provide(quantity);
+        item.provide(quantity, date);
         orderCount++;
         ItemOrder order = new ItemOrder(String.format("O%04d", orderCount), item, quantity, date, customerName);
         transactions.add(order);
@@ -158,11 +206,11 @@ public class BadmintonCenter {
     }
 
     // ตรวจทุกรายการในตะกร้า คืนข้อความบอกสาเหตุถ้าทำรายการไม่ได้ หรือ null ถ้าทำได้
-    public String checkItemOrders(ArrayList<CartItem> cart) {
+    public String checkItemOrders(ArrayList<CartItem> cart, LocalDate date) {
         if (cart.isEmpty())
             return "ยังไม่มีรายการในตะกร้า";
         for (CartItem c : cart) {
-            String error = checkItemOrder(c.getItem().getCode(), c.getQuantity());
+            String error = checkItemOrder(c.getItem().getCode(), c.getQuantity(), date);
             if (error != null)
                 return error;
         }
@@ -172,7 +220,7 @@ public class BadmintonCenter {
     // เช่า/ซื้อหลายรายการในการซื้อครั้งเดียว ได้ ItemOrder แยกตามรายการ (เพื่อแยกหมวดรายได้เช่ากับขาย)
     // คืนค่า null ถ้ามีรายการใดทำไม่ได้ และจะไม่บันทึกรายการไหนเลย
     public ArrayList<ItemOrder> createItemOrders(ArrayList<CartItem> cart, LocalDate date, String customerName) {
-        if (checkItemOrders(cart) != null)
+        if (checkItemOrders(cart, date) != null)
             return null;
         ArrayList<ItemOrder> orders = new ArrayList<ItemOrder>();
         for (CartItem c : cart)

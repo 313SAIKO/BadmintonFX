@@ -1,5 +1,7 @@
 package org.example.badminton;
 
+import java.time.LocalDate;
+
 // abstract class: ต้นแบบของอุปกรณ์ ทั้งของให้เช่าและของขาย
 public abstract class Item {
     private String code;
@@ -22,15 +24,15 @@ public abstract class Item {
     }
 
     // คลาสลูกต้องกำหนดเอง เพราะของเช่ากับของขายทำงานต่างกัน
+    // ของเช่า: นับจำนวนที่ว่างแยกตามวัน (คืนภายในวัน) / ของขาย: สต็อกลดลงถาวร ไม่ขึ้นกับวัน
     public abstract String getUnit();
     public abstract String getCategory();
-    public abstract boolean isAvailable(int quantity);
-    public abstract void provide(int quantity);
-    public abstract String getStockInfo();
+    public abstract boolean isAvailable(int quantity, LocalDate date);
+    public abstract void provide(int quantity, LocalDate date);
+    public abstract String getStockInfo(LocalDate date);
 
     @Override
     public String toString() {
-        return code + " " + name + " " + String.format("%,.2f", price) + " บาท/" + getUnit()
-                + " (" + getStockInfo() + ")";
+        return code + " " + name + " " + String.format("%,.2f", price) + " บาท/" + getUnit();
     }
 }

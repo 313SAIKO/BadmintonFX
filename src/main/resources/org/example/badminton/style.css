@@ -167,7 +167,7 @@
     -fx-background-radius: 6;
 }
 
-.legend-free, .legend-booked, .legend-selected, .legend-conflict {
+.legend-free, .legend-booked, .legend-selected, .legend-conflict, .legend-closed {
     -fx-padding: 3 8 3 8;
     -fx-background-radius: 4;
     -fx-font-size: 12px;
@@ -177,3 +177,17 @@
 .legend-booked { -fx-background-color: #f5b7b1; }
 .legend-selected { -fx-background-color: #2e86c1; -fx-text-fill: white; }
 .legend-conflict { -fx-background-color: #c0392b; -fx-text-fill: white; }
+.legend-closed { -fx-background-color: #e5e8e8; }
+
+/* แถวอุปกรณ์ที่เต็ม/หมดในวันที่เลือก */
+.table-row-cell.row-full {
+    -fx-background-color: #fdecea;
+}
+
+.table-row-cell.row-full .text {
+    -fx-fill: #a93226;
+}
+
+.table-row-cell.row-full:selected {
+    -fx-background-color: #e6b0aa;
+}

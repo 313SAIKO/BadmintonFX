@@ -1,6 +1,7 @@
 package org.example.badminton;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 // พนักงานแคชเชียร์: สมัครสมาชิก จองสนาม ขายแพ็กเกจ เช่า/ขายอุปกรณ์ และค้นหาการจอง
@@ -22,9 +23,21 @@ public class Cashier extends Person {
         return m;
     }
 
+    // Overloading: จองตอนนี้ (ใช้จากหน้าจอ) หรือระบุเวลาที่ทำรายการเอง (ใช้สร้างข้อมูลประวัติย้อนหลัง)
     public Booking bookCourt(BadmintonCenter center, String memberId, int courtNo, LocalDate date,
                              int startHour, int hours, String slipNo, String slipFile) {
-        return center.createBooking(this, memberId, courtNo, date, startHour, hours, slipNo, slipFile);
+        return bookCourt(center, memberId, courtNo, date, startHour, hours, slipNo, slipFile, LocalDateTime.now());
+    }
+
+    public Booking bookCourt(BadmintonCenter center, String memberId, int courtNo, LocalDate date, int startHour,
+                             int hours, String slipNo, String slipFile, LocalDateTime bookedAt) {
+        return center.createBooking(this, memberId, courtNo, date, startHour, hours, slipNo, slipFile, bookedAt);
+    }
+
+    // จองหลายสนาม/หลายวันพร้อมกันในครั้งเดียว ชำระด้วยสลิปใบเดียว
+    public ArrayList<Booking> bookCourts(BadmintonCenter center, String memberId, ArrayList<BookingItem> requests,
+                                         String slipNo, String slipFile) {
+        return center.createBookings(this, memberId, requests, slipNo, slipFile, LocalDateTime.now());
     }
 
     public HourPackage sellPackage(BadmintonCenter center, String memberId, LocalDate date) {

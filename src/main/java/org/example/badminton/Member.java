@@ -39,21 +39,47 @@ public class Member extends Person {
 
     // จำนวนชั่วโมงที่จะได้ส่วนลด (ชั่วโมงสะสมที่ 20, 40, 60, ...)
     public int countDiscountHours(int hours) {
-        int normalHours = hours - countPackageHours(hours);
+        return countDiscountHours(paidHours, hours - countPackageHours(hours));
+    }
+
+    // ถ้าสะสมไว้แล้ว paidBefore ชั่วโมง แล้วจ่ายราคาปกติเพิ่ม normalHours ชั่วโมง จะได้ส่วนลดกี่ชั่วโมง
+    private int countDiscountHours(int paidBefore, int normalHours) {
         int count = 0;
         for (int i = 1; i <= normalHours; i++) {
-            if ((paidHours + i) % DISCOUNT_EVERY == 0)
+            if ((paidBefore + i) % DISCOUNT_EVERY == 0)
                 count++;
         }
         return count;
     }
 
+    private double courtFee(int normalHours, int discountHours, double pricePerHour) {
+        return (normalHours - discountHours) * pricePerHour
+                + discountHours * pricePerHour * DISCOUNT_PERCENT / 100;
+    }
+
     // คำนวณค่าสนาม (ยังไม่หักชั่วโมงจริง ใช้แสดงยอดก่อนยืนยัน)
     public double calculateCourtFee(int hours, double pricePerHour) {
         int normalHours = hours - countPackageHours(hours);
-        int discountHours = countDiscountHours(hours);
-        return (normalHours - discountHours) * pricePerHour
-                + discountHours * pricePerHour * DISCOUNT_PERCENT / 100;
+        return courtFee(normalHours, countDiscountHours(paidHours, normalHours), pricePerHour);
+    }
+
+    // คิดราคาการจองหลายรายการต่อกันตามลำดับ (ยังไม่หักชั่วโมงจริง ใช้แสดงยอดก่อนยืนยัน)
+    // รายการหลังใช้ชั่วโมงแพ็กเกจที่เหลือ และนับชั่วโมงสะสมต่อจากรายการก่อนหน้า
+    public double priceItems(ArrayList<BookingItem> items, double pricePerHour) {
+        int packageLeft = getPackageHoursLeft();
+        int paid = paidHours;
+        double total = 0;
+        for (BookingItem item : items) {
+            int fromPackage = Math.min(item.getHours(), packageLeft);
+            int normalHours = item.getHours() - fromPackage;
+            int discountHours = countDiscountHours(paid, normalHours);
+            double fee = courtFee(normalHours, discountHours, pricePerHour);
+            item.setPrice(fromPackage, discountHours, fee);
+            packageLeft -= fromPackage;
+            paid += normalHours;
+            total += fee;
+        }
+        return total;
     }
 
     // หักชั่วโมงแพ็กเกจและสะสมชั่วโมง หลังจองสำเร็จ

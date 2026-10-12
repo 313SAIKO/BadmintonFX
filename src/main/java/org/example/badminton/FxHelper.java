@@ -11,12 +11,14 @@ import javafx.util.StringConverter;
 
 import java.time.LocalDate;
 import java.time.chrono.IsoChronology;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.function.Function;
 
 // เมธอดช่วยที่หน้าจอแคชเชียร์และผู้ดูแลระบบใช้ร่วมกัน
 public class FxHelper {
+    public static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static String money(double amount) {
         return String.format("%,.2f", amount);
@@ -65,6 +67,7 @@ public class FxHelper {
         addColumn(table, "ค่าสนาม (บาท)", 110, b -> money(b.getTotal()));
         addColumn(table, "การชำระเงิน", 300, b -> paymentText(b));
         addColumn(table, "ผู้บันทึก", 75, b -> b.getCashier().getId());
+        addColumn(table, "จองเมื่อ", 125, b -> b.getBookedAt().format(DATE_TIME));
         table.setPlaceholder(new Label("ไม่มีข้อมูลการจอง"));
     }
 
@@ -94,23 +97,6 @@ public class FxHelper {
 
             @Override
             public Member fromString(String text) {
-                return null;
-            }
-        };
-    }
-
-    // ให้ ComboBox แสดงชั่วโมงเป็น "13:00"
-    public static StringConverter<Integer> hourConverter() {
-        return new StringConverter<Integer>() {
-            @Override
-            public String toString(Integer hour) {
-                if (hour == null)
-                    return "";
-                return String.format("%02d:00", hour);
-            }
-
-            @Override
-            public Integer fromString(String text) {
                 return null;
             }
         };

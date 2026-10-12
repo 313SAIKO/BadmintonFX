@@ -31,7 +31,9 @@ import javafx.stage.FileChooser;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 public class CashierController {
 
@@ -45,9 +47,7 @@ public class CashierController {
     @FXML private ListView<Member> lstMembers;
     @FXML private Label lblMemberInfo;
     @FXML private DatePicker dpDate;
-    @FXML private ComboBox<Integer> cboCourt;
-    @FXML private ComboBox<Integer> cboStartHour;
-    @FXML private Spinner<Integer> spnHours;
+    @FXML private Button btnClearSlots;
     @FXML private Label lblPrice;
     @FXML private VBox boxSlip;
     @FXML private TextField txtSlipNo;
@@ -102,9 +102,15 @@ public class CashierController {
     private int scheduleFirstHour;  // ชั่วโมงของแถวแรก (ปกติคือเวลาเปิด)
     private int scheduleOpenHour;
     private int scheduleCloseHour;
-    private boolean selecting;      // กำลังตั้งค่าสนาม/เวลาจากตาราง ให้คำนวณราคาครั้งเดียวตอนตั้งค่าครบ
+    private LocalDateTime scheduleNow;  // เวลาตอนวาดตาราง ใช้ปิดช่องที่ผ่านไปแล้ว
+
+    // ช่องที่เลือกไว้ ช่องละ 1 ชั่วโมง เลือกได้หลายสนามและหลายวัน ตอนจองจะรวมช่องที่ติดกันเป็นรายการเดียว
+    private ArrayList<BookingItem> selectedSlots = new ArrayList<BookingItem>();
+    private ArrayList<BookingItem> dragBase;  // ช่องที่เลือกไว้ก่อนเริ่มลาก
+    private boolean dragAdding;               // ลากเพื่อเลือกเพิ่ม (true) หรือยกเลิก (false)
     private int dragCourt;
     private int dragStartHour;
+    private BookingItem lastClickedSlot;      // ใช้กับ Shift+คลิก
 
     private Member bookingMember;   // สมาชิกที่กำลังจองให้ ใช้ตรวจว่าเปลี่ยนคนแล้วหรือยัง
     private boolean filtering;      // กำลังกรองรายชื่อ รายการที่เลือกอาจหายแล้วกลับมา ยังไม่ถือว่าเปลี่ยนคน
@@ -114,12 +120,9 @@ public class CashierController {
     // ทำงานอัตโนมัติหลังโหลด FXML (ยังไม่มีข้อมูลระบบ)
     @FXML
     public void initialize() {
-        for (int i = 1; i <= BadmintonCenter.COURT_COUNT; i++) {
-            cboCourt.getItems().add(i);
+        for (int i = 1; i <= BadmintonCenter.COURT_COUNT; i++)
             cboSearchCourt.getItems().add(i);
-        }
         cboSearchCourt.getSelectionModel().selectFirst();
-        cboStartHour.setConverter(FxHelper.hourConverter());
 
         FxHelper.setupDatePicker(dpDate);
         FxHelper.setupDatePicker(dpPackageDate);
@@ -167,9 +170,18 @@ public class CashierController {
         FxHelper.addColumn(tblItems, "ประเภท", 120, item -> item.getCategory());
         FxHelper.addColumn(tblItems, "ราคา (บาท)", 90, item -> FxHelper.money(item.getPrice()));
         FxHelper.addColumn(tblItems, "หน่วย", 70, item -> item.getUnit());
-        FxHelper.addColumn(tblItems, "จำนวน", 130, item -> item.getStockInfo());
+        FxHelper.addColumn(tblItems, "ว่าง/คงเหลือ (ตามวันที่)", 170, item -> item.getStockInfo(getItemDate()));
+        // แถวของอุปกรณ์ที่เต็มหรือหมดแล้วในวันที่เลือก แสดงเป็นสีแดง
         tblItems.setRowFactory(table -> {
-            TableRow<Item> row = new TableRow<Item>();
+            TableRow<Item> row = new TableRow<Item>() {
+                @Override
+                protected void updateItem(Item item, boolean empty) {
+                    super.updateItem(item, empty);
+                    getStyleClass().remove("row-full");
+                    if (!empty && item != null && !item.isAvailable(1, getItemDate()))
+                        getStyleClass().add("row-full");
+                }
+            };
             row.setOnMouseClicked(e -> {
                 if (e.getClickCount() == 2 && !row.isEmpty())
                     addToCart(row.getItem(), spnQuantity.getValue());
@@ -193,14 +205,16 @@ public class CashierController {
         });
         dpDate.valueProperty().addListener((obs, oldValue, newValue) -> {
             drawSchedule();
-            updateStartHours();
             updateBookingForm();
         });
-        cboCourt.valueProperty().addListener((obs, oldValue, newValue) -> onSlotFieldChanged());
-        cboStartHour.valueProperty().addListener((obs, oldValue, newValue) -> onSlotFieldChanged());
-        spnHours.valueProperty().addListener((obs, oldValue, newValue) -> onSlotFieldChanged());
         cboPackageMember.valueProperty().addListener((obs, oldValue, newValue) -> updatePackageInfo());
         tblItems.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateSelectedItem());
+        // เปลี่ยนวันที่เช่า: จำนวนว่างของของเช่าเปลี่ยนตามวัน ต้องตรวจตะกร้าใหม่
+        dpItemDate.valueProperty().addListener((obs, oldValue, newValue) -> {
+            tblItems.refresh();
+            updateSelectedItem();
+            updateCartTotal();
+        });
     }
 
     public void setData(BadmintonApplication app, Cashier cashier) {
@@ -212,7 +226,6 @@ public class CashierController {
         updateCustomerNames();
         tblItems.setItems(FXCollections.observableArrayList(center.getItems()));
         drawSchedule();
-        updateStartHours();
         updateBookingForm();
         updatePackageInfo();
         updateSelectedItem();
@@ -296,27 +309,7 @@ public class CashierController {
         dpDate.setValue(LocalDate.now());
     }
 
-    private void updateStartHours() {
-        LocalDate date = dpDate.getValue();
-        if (center == null || date == null)
-            return;
-        OpeningHours oh = center.getOpeningHours();
-        Integer oldHour = cboStartHour.getValue();
-        cboStartHour.getItems().clear();
-        for (int h = oh.getOpenHour(date); h < oh.getCloseHour(date); h++)
-            cboStartHour.getItems().add(h);
-        if (oldHour != null && cboStartHour.getItems().contains(oldHour))
-            cboStartHour.setValue(oldHour);
-        else
-            cboStartHour.getSelectionModel().selectFirst();
-    }
-
     // ==================== จองสนาม: ฟอร์มและราคา ====================
-    private void onSlotFieldChanged() {
-        if (!selecting)
-            updateBookingForm();
-    }
-
     private void updateBookingForm() {
         if (center == null)
             return;
@@ -333,58 +326,83 @@ public class CashierController {
         paintSchedule();
     }
 
+    // รวมช่องที่เลือกซึ่งติดกัน (วันเดียวกัน สนามเดียวกัน ชั่วโมงต่อกัน) เป็นคำขอจอง 1 รายการ
+    // แล้วเรียงตามวันและเวลา เพื่อคิดชั่วโมงสะสมและแพ็กเกจตามลำดับเวลาที่เล่น
+    private ArrayList<BookingItem> buildBookingItems() {
+        ArrayList<BookingItem> slots = new ArrayList<BookingItem>(selectedSlots);
+        slots.sort(Comparator.comparing(BookingItem::getDate)
+                .thenComparing(BookingItem::getCourtNo)
+                .thenComparing(BookingItem::getStartHour));
+        ArrayList<BookingItem> items = new ArrayList<BookingItem>();
+        int i = 0;
+        while (i < slots.size()) {
+            BookingItem first = slots.get(i);
+            int hours = 1;
+            while (i + hours < slots.size() && isNextSlot(slots.get(i + hours - 1), slots.get(i + hours)))
+                hours++;
+            items.add(new BookingItem(first.getCourtNo(), first.getDate(), first.getStartHour(), hours));
+            i += hours;
+        }
+        items.sort(Comparator.comparing(BookingItem::getDate)
+                .thenComparing(BookingItem::getStartHour)
+                .thenComparing(BookingItem::getCourtNo));
+        return items;
+    }
+
+    private boolean isNextSlot(BookingItem a, BookingItem b) {
+        return a.getDate().equals(b.getDate()) && a.getCourtNo() == b.getCourtNo()
+                && a.getEndHour() == b.getStartHour();
+    }
+
     private void updatePrice() {
         Member m = getSelectedMember();
-        LocalDate date = dpDate.getValue();
-        Integer courtNo = cboCourt.getValue();
-        Integer startHour = cboStartHour.getValue();
-        int hours = spnHours.getValue();
+        ArrayList<BookingItem> items = buildBookingItems();
         lblPrice.getStyleClass().setAll("label", "price-box");
         btnBook.setText("ยืนยันการจอง");
         btnBook.setDisable(true);
+        btnClearSlots.setDisable(items.isEmpty());
         showSlipBox(true);
 
         if (m == null) {
             lblPrice.setText("ขั้นที่ 1: เลือกสมาชิกจากรายชื่อด้านบน");
             return;
         }
-        if (date == null || courtNo == null || startHour == null) {
-            lblPrice.setText("ขั้นที่ 2: คลิกช่องสีเขียวในตารางสนามด้านขวา เพื่อเลือกสนามและเวลา");
+        if (items.isEmpty()) {
+            lblPrice.setText("ขั้นที่ 2: คลิกช่องสีเขียวในตารางสนามด้านขวา เลือกได้หลายสนาม และกด « » เพื่อเลือกวันอื่นเพิ่ม");
             return;
         }
-        String error = center.checkBooking(m.getId(), courtNo, date, startHour, hours);
+        String error = center.checkBookings(m.getId(), items, LocalDateTime.now());
         if (error != null) {
             lblPrice.getStyleClass().setAll("label", "price-box-error");
             lblPrice.setText("จองไม่ได้: " + error);
             return;
         }
 
-        int packageHours = m.countPackageHours(hours);
-        int discountHours = m.countDiscountHours(hours);
-        int normalHours = hours - packageHours - discountHours;
-        double discountPrice = Court.PRICE_PER_HOUR * Member.DISCOUNT_PERCENT / 100;
-        double fee = m.calculateCourtFee(hours, Court.PRICE_PER_HOUR);
-
-        String text = "สนาม " + courtNo + " | " + date + " | "
-                + String.format("%02d:00-%02d:00", startHour, startHour + hours) + " (" + hours + " ชม.)";
+        double total = m.priceItems(items, Court.PRICE_PER_HOUR);
+        int totalHours = 0;
+        int packageHours = 0;
+        String text = "รายการจอง " + items.size() + " รายการ";
+        for (int i = 0; i < items.size(); i++) {
+            BookingItem item = items.get(i);
+            text += "\n" + (i + 1) + ") " + item + " = " + FxHelper.money(item.getFee());
+            if (item.getPackageHours() > 0)
+                text += " (แพ็กเกจ " + item.getPackageHours() + " ชม.)";
+            if (item.getDiscountHours() > 0)
+                text += " (ชั่วโมงที่ " + Member.DISCOUNT_EVERY + " ลดเหลือ " + Member.DISCOUNT_PERCENT + "%)";
+            totalHours += item.getHours();
+            packageHours += item.getPackageHours();
+        }
+        text += "\nรวม " + totalHours + " ชม.";
         if (packageHours > 0)
-            text += "\nใช้ชั่วโมงแพ็กเกจ " + packageHours + " ชม. (เหลือ "
-                    + (m.getPackageHoursLeft() - packageHours) + " ชม.)";
-        if (normalHours > 0)
-            text += "\nราคาปกติ " + normalHours + " ชม. x " + FxHelper.money(Court.PRICE_PER_HOUR)
-                    + " = " + FxHelper.money(normalHours * Court.PRICE_PER_HOUR) + " บาท";
-        if (discountHours > 0)
-            text += "\nชั่วโมงที่ " + Member.DISCOUNT_EVERY + " ลดเหลือ " + Member.DISCOUNT_PERCENT + "%: "
-                    + discountHours + " ชม. x " + FxHelper.money(discountPrice)
-                    + " = " + FxHelper.money(discountHours * discountPrice) + " บาท";
-        text += "\nยอดชำระ " + FxHelper.money(fee) + " บาท";
-        if (fee == 0)
+            text += " | แพ็กเกจเหลือหลังจอง " + (m.getPackageHoursLeft() - packageHours) + " ชม.";
+        text += "\nยอดชำระ " + FxHelper.money(total) + " บาท";
+        if (total == 0)
             text += " (ใช้แพ็กเกจทั้งหมด ไม่ต้องแนบสลิป)";
         lblPrice.setText(text);
 
-        btnBook.setText("ยืนยันการจอง  " + FxHelper.money(fee) + " บาท");
+        btnBook.setText("ยืนยันการจอง " + items.size() + " รายการ  " + FxHelper.money(total) + " บาท");
         btnBook.setDisable(false);
-        showSlipBox(fee > 0);
+        showSlipBox(total > 0);
     }
 
     private void showSlipBox(boolean show) {
@@ -403,6 +421,7 @@ public class CashierController {
         OpeningHours oh = center.getOpeningHours();
         scheduleOpenHour = oh.getOpenHour(date);
         scheduleCloseHour = oh.getCloseHour(date);
+        scheduleNow = LocalDateTime.now();
 
         // การจองที่อยู่นอกเวลาทำการ (เช่น ประกาศวันหยุดทีหลัง) ต้องยังเห็นในตาราง จึงขยายแถวให้ครอบคลุม
         scheduleFirstHour = scheduleOpenHour;
@@ -413,6 +432,8 @@ public class CashierController {
             lastHour = Math.max(lastHour, b.getEndHour());
         }
         String title = oh.describe(date);
+        if (date.isBefore(scheduleNow.toLocalDate()))
+            title += " (วันที่ผ่านมาแล้ว ดูได้อย่างเดียว จองย้อนหลังไม่ได้)";
         if (!outside.isEmpty())
             title += "\nมีการจอง " + outside.size() + " รายการอยู่นอกเวลาทำการ (แถวสีเทา) กรุณาติดต่อสมาชิกเพื่อเลื่อนเวลา";
         lblScheduleTitle.setText(title);
@@ -437,6 +458,8 @@ public class CashierController {
                     cell.setUserData(booking);
                 } else if (isClosedHour(hour)) {
                     cell.setTooltip(new Tooltip("นอกเวลาทำการ"));
+                } else if (isPastHour(hour)) {
+                    cell.setTooltip(new Tooltip("เลยเวลาแล้ว จองย้อนหลังไม่ได้"));
                 } else {
                     addSlotHandlers(cell, c, hour);
                 }
@@ -447,32 +470,30 @@ public class CashierController {
         paintSchedule();
     }
 
-    // เปลี่ยนสีช่องตามช่วงที่เลือกอยู่ (ไม่สร้างช่องใหม่)
+    // เปลี่ยนสีช่องตามช่องที่เลือกไว้ (ไม่สร้างช่องใหม่)
     private void paintSchedule() {
         if (slotCells == null)
             return;
-        Integer selectedCourt = cboCourt.getValue();
-        Integer selectedStart = cboStartHour.getValue();
-        int selectedHours = spnHours.getValue();
+        LocalDate date = dpDate.getValue();
         for (int r = 0; r < slotCells.length; r++) {
             int hour = scheduleFirstHour + r;
             for (int c = 1; c <= BadmintonCenter.COURT_COUNT; c++) {
                 Label cell = slotCells[r][c];
                 boolean booked = cell.getUserData() != null;
-                boolean selected = selectedCourt != null && selectedStart != null && c == selectedCourt
-                        && hour >= selectedStart && hour < selectedStart + selectedHours;
-                if (booked && selected)
+                boolean unavailable = isClosedHour(hour) || isPastHour(hour);
+                boolean selected = findSlot(c, date, hour) >= 0;
+                if (selected && (booked || unavailable))
                     cell.getStyleClass().setAll("label", "slot-conflict");
                 else if (booked)
                     cell.getStyleClass().setAll("label", "slot-booked");
-                else if (isClosedHour(hour))
+                else if (unavailable)
                     cell.getStyleClass().setAll("label", "slot-closed");
                 else if (selected)
                     cell.getStyleClass().setAll("label", "slot-selected");
                 else
                     cell.getStyleClass().setAll("label", "slot-free");
                 if (!booked) {
-                    if (selected && !isClosedHour(hour))
+                    if (selected && !unavailable)
                         cell.setText("✓");
                     else
                         cell.setText("");
@@ -483,6 +504,10 @@ public class CashierController {
 
     private boolean isClosedHour(int hour) {
         return hour < scheduleOpenHour || hour >= scheduleCloseHour;
+    }
+
+    private boolean isPastHour(int hour) {
+        return center.isPastTime(dpDate.getValue(), hour, scheduleNow);
     }
 
     private Label createHeader(String text) {
@@ -501,69 +526,84 @@ public class CashierController {
         return null;
     }
 
-    // คลิกเพื่อเลือก/ยกเลิกทีละช่อง หรือกดค้างแล้วลากขึ้นลงเพื่อเลือกหลายชั่วโมง
+    // คลิก = เลือก/ยกเลิกทีละช่อง, กดค้างแล้วลาก = เลือกหลายชั่วโมงในสนามเดียวกัน,
+    // Shift+คลิก = เลือกต่อเนื่องจากช่องที่คลิกก่อนหน้า
     private void addSlotHandlers(Label cell, int courtNo, int hour) {
         cell.setOnMousePressed(e -> {
             dragCourt = courtNo;
             dragStartHour = hour;
+            dragBase = null;
         });
         cell.setOnDragDetected(e -> {
+            dragAdding = findSlot(courtNo, dpDate.getValue(), hour) < 0;
+            dragBase = new ArrayList<BookingItem>(selectedSlots);
+            setSlotRange(courtNo, hour, hour);
             cell.startFullDrag();
-            selectSlots(courtNo, hour, hour);
         });
-        cell.setOnMouseDragEntered(e -> onSlotDragged(courtNo, hour));
+        cell.setOnMouseDragEntered(e -> {
+            if (dragBase != null && courtNo == dragCourt)
+                setSlotRange(courtNo, dragStartHour, hour);
+        });
         cell.setOnMouseClicked(e -> {
-            if (e.isStillSincePress())
-                onSlotClicked(courtNo, hour);
+            if (!e.isStillSincePress())
+                return;
+            LocalDate date = dpDate.getValue();
+            if (e.isShiftDown() && lastClickedSlot != null && lastClickedSlot.getCourtNo() == courtNo
+                    && lastClickedSlot.getDate().equals(date)) {
+                dragAdding = true;
+                dragBase = new ArrayList<BookingItem>(selectedSlots);
+                setSlotRange(courtNo, lastClickedSlot.getStartHour(), hour);
+                dragBase = null;
+            } else {
+                toggleSlot(courtNo, hour);
+            }
+            lastClickedSlot = new BookingItem(courtNo, date, hour, 1);
         });
     }
 
-    private void onSlotClicked(int courtNo, int hour) {
-        Integer court = cboCourt.getValue();
-        Integer start = cboStartHour.getValue();
-        if (court == null || start == null || court != courtNo) {
-            selectSlots(courtNo, hour, hour);
-            return;
+    // คืนตำแหน่งในรายการที่เลือก หรือ -1 ถ้ายังไม่ได้เลือกช่องนี้
+    private int findSlot(int courtNo, LocalDate date, int hour) {
+        for (int i = 0; i < selectedSlots.size(); i++) {
+            BookingItem s = selectedSlots.get(i);
+            if (s.getCourtNo() == courtNo && s.getDate().equals(date) && s.getStartHour() == hour)
+                return i;
         }
-        int end = start + spnHours.getValue() - 1;  // ชั่วโมงสุดท้ายที่เลือกอยู่
-        if (hour >= start && hour <= end) {
-            // คลิกช่องที่เลือกไว้แล้ว = ยกเลิกช่องนั้น (ช่วงที่เลือกต้องติดกันเสมอ)
-            if (start == end)
-                cboCourt.setValue(null);
-            else if (hour == start)
-                selectSlots(courtNo, start + 1, end);
-            else
-                selectSlots(courtNo, start, hour - 1);
-        } else {
-            // คลิกช่องอื่นในสนามเดียวกัน = ขยายช่วงไปถึงช่องนั้น ถ้าระหว่างทางว่างทั้งหมด
-            int from = Math.min(start, hour);
-            int to = Math.max(end, hour);
-            if (isSlotFree(courtNo, from, to))
-                selectSlots(courtNo, from, to);
-            else
-                selectSlots(courtNo, hour, hour);
+        return -1;
+    }
+
+    private void toggleSlot(int courtNo, int hour) {
+        LocalDate date = dpDate.getValue();
+        int index = findSlot(courtNo, date, hour);
+        if (index >= 0)
+            selectedSlots.remove(index);
+        else
+            selectedSlots.add(new BookingItem(courtNo, date, hour, 1));
+        updateBookingForm();
+    }
+
+    // ตั้งช่วง fromHour-toHour ของสนามเดียวกัน โดยเริ่มจากช่องที่เลือกไว้ก่อนลาก (dragBase)
+    // เริ่มลากจากช่องว่าง = เลือกเพิ่ม, เริ่มจากช่องที่เลือกไว้ = ยกเลิก
+    private void setSlotRange(int courtNo, int fromHour, int toHour) {
+        LocalDate date = dpDate.getValue();
+        selectedSlots = new ArrayList<BookingItem>(dragBase);
+        for (int h = Math.min(fromHour, toHour); h <= Math.max(fromHour, toHour); h++) {
+            int index = findSlot(courtNo, date, h);
+            if (dragAdding && index < 0 && isFreeSlot(courtNo, h))
+                selectedSlots.add(new BookingItem(courtNo, date, h, 1));
+            else if (!dragAdding && index >= 0)
+                selectedSlots.remove(index);
         }
+        updateBookingForm();
     }
 
-    private void onSlotDragged(int courtNo, int hour) {
-        if (courtNo != dragCourt)
-            return;
-        int from = Math.min(dragStartHour, hour);
-        int to = Math.max(dragStartHour, hour);
-        if (isSlotFree(courtNo, from, to))
-            selectSlots(courtNo, from, to);
+    private boolean isFreeSlot(int courtNo, int hour) {
+        return !isClosedHour(hour) && !isPastHour(hour)
+                && center.isCourtAvailable(courtNo, dpDate.getValue(), hour, 1);
     }
 
-    private boolean isSlotFree(int courtNo, int fromHour, int toHour) {
-        return center.isCourtAvailable(courtNo, dpDate.getValue(), fromHour, toHour - fromHour + 1);
-    }
-
-    private void selectSlots(int courtNo, int fromHour, int toHour) {
-        selecting = true;
-        cboCourt.setValue(courtNo);
-        cboStartHour.setValue(fromHour);
-        spnHours.getValueFactory().setValue(toHour - fromHour + 1);
-        selecting = false;
+    @FXML
+    protected void onClearSlotsButtonClick() {
+        selectedSlots.clear();
         updateBookingForm();
     }
 
@@ -582,47 +622,47 @@ public class CashierController {
     @FXML
     protected void onBookButtonClick() {
         Member m = getSelectedMember();
-        LocalDate date = dpDate.getValue();
-        Integer courtNo = cboCourt.getValue();
-        Integer startHour = cboStartHour.getValue();
-        int hours = spnHours.getValue();
-        if (m == null || date == null || courtNo == null || startHour == null) {
-            FxHelper.showMessage(lblBookResult, "กรุณาเลือกสมาชิก วันที่ สนาม และเวลาให้ครบ", false);
+        ArrayList<BookingItem> items = buildBookingItems();
+        if (m == null || items.isEmpty()) {
+            FxHelper.showMessage(lblBookResult, "กรุณาเลือกสมาชิก และเลือกสนามกับเวลาจากตารางให้ครบ", false);
             return;
         }
-        String error = center.checkBooking(m.getId(), courtNo, date, startHour, hours);
+        String error = center.checkBookings(m.getId(), items, LocalDateTime.now());
         if (error != null) {
             FxHelper.showMessage(lblBookResult, "จองไม่ได้: " + error, false);
             return;
         }
 
-        double fee = m.calculateCourtFee(hours, Court.PRICE_PER_HOUR);
+        double total = m.priceItems(items, Court.PRICE_PER_HOUR);
         String slipNo = txtSlipNo.getText().trim();
         String slipFile = txtSlipFile.getText().trim();
-        if (fee > 0 && (slipNo.isEmpty() || slipFile.isEmpty())) {
-            FxHelper.showMessage(lblBookResult, "มียอดชำระ " + FxHelper.money(fee)
+        if (total > 0 && (slipNo.isEmpty() || slipFile.isEmpty())) {
+            FxHelper.showMessage(lblBookResult, "มียอดชำระ " + FxHelper.money(total)
                     + " บาท กรุณากรอกเลขที่สลิปและแนบไฟล์สลิป", false);
             return;
         }
         if (!FxHelper.confirm("ยืนยันการจอง", m.getId() + " " + m.getName() + "\n" + lblPrice.getText()))
             return;
 
-        Booking b = cashier.bookCourt(center, m.getId(), courtNo, date, startHour, hours, slipNo, slipFile);
-        if (b == null) {
+        ArrayList<Booking> booked = cashier.bookCourts(center, m.getId(), items, slipNo, slipFile);
+        if (booked == null) {
             FxHelper.showMessage(lblBookResult, "จองไม่สำเร็จ", false);
             return;
         }
-        FxHelper.showMessage(lblBookResult, "จองสำเร็จ " + b.getBookingId() + " | " + b.getCourt() + " "
-                + b.getDate() + " " + b.getTimeText() + " | ค่าสนาม " + FxHelper.money(b.getTotal()) + " บาท", true);
+        String ids = booked.get(0).getBookingId();
+        if (booked.size() > 1)
+            ids += " - " + booked.get(booked.size() - 1).getBookingId();
+        FxHelper.showMessage(lblBookResult, "จองสำเร็จ " + booked.size() + " รายการ (" + ids + ") | ค่าสนามรวม "
+                + FxHelper.money(total) + " บาท", true);
         lastBookedMember = m;
-        lastBookedDate = date;
+        lastBookedDate = booked.get(0).getDate();
         btnRentForMember.setText("เช่า/ซื้ออุปกรณ์ให้ " + m.getName() + " ต่อ");
         btnRentForMember.setVisible(true);
         btnRentForMember.setManaged(true);
 
         txtSlipNo.clear();
         txtSlipFile.clear();
-        cboCourt.setValue(null);
+        selectedSlots.clear();
         drawSchedule();
         tblMembers.refresh();
         lstMembers.refresh();
@@ -708,13 +748,21 @@ public class CashierController {
             cboCustomer.getItems().add(m.getName());
     }
 
+    // วันที่เช่า/ซื้อ ใช้ดูจำนวนของเช่าที่ว่างในวันนั้น
+    private LocalDate getItemDate() {
+        if (dpItemDate.getValue() == null)
+            return LocalDate.now();
+        return dpItemDate.getValue();
+    }
+
     private void updateSelectedItem() {
         Item item = tblItems.getSelectionModel().getSelectedItem();
         if (item == null)
             lblSelectedItem.setText("ยังไม่ได้เลือกอุปกรณ์");
         else
             lblSelectedItem.setText("เลือก: " + item.getCode() + " " + item.getName() + " "
-                    + FxHelper.money(item.getPrice()) + " บาท/" + item.getUnit());
+                    + FxHelper.money(item.getPrice()) + " บาท/" + item.getUnit()
+                    + " | " + getItemDate() + ": " + item.getStockInfo(getItemDate()));
     }
 
     // คอลัมน์จำนวนมีปุ่ม − / + แก้จำนวนได้ทันที (กด − ตอนเหลือ 1 = ลบออกจากตะกร้า)
@@ -773,8 +821,9 @@ public class CashierController {
         int total = quantity;
         if (line != null)
             total += line.getQuantity();
-        if (!item.isAvailable(total)) {
-            FxHelper.showMessage(lblItemResult, "มีของไม่พอ: " + item, false);
+        if (!item.isAvailable(total, getItemDate())) {
+            FxHelper.showMessage(lblItemResult, "มีของไม่พอ: " + item.getName() + " วันที่ " + getItemDate()
+                    + " " + item.getStockInfo(getItemDate()), false);
             return;
         }
         if (line == null)
@@ -793,8 +842,9 @@ public class CashierController {
         int quantity = line.getQuantity() + change;
         if (quantity <= 0) {
             cart.remove(line);
-        } else if (!line.getItem().isAvailable(quantity)) {
-            FxHelper.showMessage(lblItemResult, "มีของไม่พอ: " + line.getItem(), false);
+        } else if (!line.getItem().isAvailable(quantity, getItemDate())) {
+            FxHelper.showMessage(lblItemResult, "มีของไม่พอ: " + line.getItem().getName() + " วันที่ " + getItemDate()
+                    + " " + line.getItem().getStockInfo(getItemDate()), false);
             return;
         } else {
             line.setQuantity(quantity);
@@ -807,14 +857,24 @@ public class CashierController {
         double total = 0;
         for (CartItem line : cart)
             total += line.getSubtotal();
+        lblCartTotal.getStyleClass().setAll("label", "price-box");
         lblCartTotal.setText(cart.size() + " รายการ | ยอดรวม " + FxHelper.money(total) + " บาท");
         if (cart.isEmpty()) {
             btnCheckout.setText("ยืนยันรายการ");
             btnCheckout.setDisable(true);
-        } else {
-            btnCheckout.setText("ยืนยันรายการ  " + FxHelper.money(total) + " บาท");
-            btnCheckout.setDisable(false);
+            return;
         }
+        // เปลี่ยนวันที่แล้วของเช่าวันนั้นอาจเต็ม ต้องตรวจตะกร้าใหม่
+        String error = center.checkItemOrders(new ArrayList<CartItem>(cart), getItemDate());
+        if (error != null) {
+            lblCartTotal.getStyleClass().setAll("label", "price-box-error");
+            lblCartTotal.setText("ทำรายการไม่ได้: " + error);
+            btnCheckout.setText("ยืนยันรายการ");
+            btnCheckout.setDisable(true);
+            return;
+        }
+        btnCheckout.setText("ยืนยันรายการ  " + FxHelper.money(total) + " บาท");
+        btnCheckout.setDisable(false);
     }
 
     @FXML
@@ -838,7 +898,7 @@ public class CashierController {
             return;
         }
         ArrayList<CartItem> lines = new ArrayList<CartItem>(cart);
-        String error = center.checkItemOrders(lines);
+        String error = center.checkItemOrders(lines, date);
         if (error != null) {
             FxHelper.showMessage(lblItemResult, error, false);
             return;
